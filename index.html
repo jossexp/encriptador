@@ -54,7 +54,7 @@
         .panel-title { font-family: 'Courier New', monospace; font-size: 0.75rem; font-weight: bold; color: var(--neon-cyan); margin-bottom: 10px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
         .panel-title::before { content: ''; display: inline-block; width: 6px; height: 6px; background: var(--neon-cyan); box-shadow: 0 0 6px var(--neon-cyan); }
 
-        .row-inline { display: flex; gap: 12px; width: 100%; }
+        .row-inline { display: flex; gap: 12px; width: 100%; align-items: center; }
         input[type="text"], select, textarea { background-color: var(--bg-input); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 12px; color: #fff; font-size: 0.95rem; outline: none; width: 100%; }
         input[type="text"]:focus { border-color: var(--neon-cyan); }
 
@@ -70,6 +70,8 @@
 
         .chat-img { max-width: 100%; max-height: 200px; border: 1px solid var(--neon-cyan); border-radius: 8px; margin-top: 8px; display: block; box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); cursor: pointer; transition: transform 0.2s; }
         .chat-img:hover { transform: scale(1.02); }
+
+        .cyber-audio { margin-top: 8px; width: 100%; max-width: 240px; height: 32px; filter: hue-rotate(90deg) invert(1); outline: none; }
 
         /* INTERFAZ DEL PAYWALL */
         .paywall-overlay {
@@ -164,6 +166,7 @@
         <header>
             <h1>[CRYPTO_POCKET_P2P]</h1>
             <p>Terminal Autoadaptable — Canal Seguro Activado <span id="userTokenBadge" style="color: var(--neon-purple); font-weight: bold; margin-left: 10px;"></span></p>
+            <div style="font-family:'Courier New', monospace; font-size: 0.8rem; color: var(--neon-cyan); margin-top:4px;" id="identityBadge">ASIGNANDO_ALIAS...</div>
         </header>
 
         <div class="cyber-panel">
@@ -171,6 +174,7 @@
             <div class="row-inline">
                 <input type="text" id="roomInput" placeholder="Ingrese clave o credencial de canal privado..." autocomplete="off">
                 <button class="btn" id="connBtn" onclick="connectToBroker()">Enlazar</button>
+                <span id="peerStatusBadge" style="font-family:'Courier New', monospace; font-size:0.75rem; color: var(--neon-red); font-weight: bold; white-space:nowrap;">[NODO_REMOTO: OFFLINE]</span>
             </div>
             <div id="statusIndicator" style="font-family:'Courier New', monospace; font-size: 0.7rem; color: var(--text-muted); margin-top: 8px; text-align: center;">
                 SISTEMA: Esperando inyección de canal...
@@ -184,7 +188,10 @@
                 <div>
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <label style="color: var(--neon-purple); font-family: 'Courier New', monospace; font-size: 0.75rem; font-weight: bold;">Bloque de Mensaje Seguro</label>
-                        <label for="imageInput" style="color: var(--neon-cyan); cursor: pointer; font-size: 0.75rem; font-family: 'Courier New', monospace; font-weight: bold; text-shadow: 0 0 5px rgba(0, 240, 255, 0.4);">📎 ADJUNTAR IMAGEN</label>
+                        <div style="display: flex; gap: 14px;">
+                            <label id="micBtn" style="color: var(--neon-purple); cursor: pointer; font-size: 0.75rem; font-family: 'Courier New', monospace; font-weight: bold; text-shadow: 0 0 5px rgba(157, 78, 221, 0.4);" onclick="toggleVoiceRecording()">🎙️ GRABAR AUDIO</label>
+                            <label for="imageInput" style="color: var(--neon-cyan); cursor: pointer; font-size: 0.75rem; font-family: 'Courier New', monospace; font-weight: bold; text-shadow: 0 0 5px rgba(0, 240, 255, 0.4);">📎 ADJUNTAR IMAGEN</label>
+                        </div>
                         <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
                     </div>
                     <textarea id="payloadText" rows="3" placeholder="Escriba aquí los datos o párrafos a transmitir..."></textarea>
@@ -202,13 +209,79 @@
                 </div>
             </div>
         </div>
+
+        <div class="cyber-panel">
+            <div class="panel-title">Consola de Log de Sistema</div>
+            <div id="terminalLog" style="font-family: 'Courier New', monospace; font-size: 0.75rem; background: #010204; border: 1px solid #1e293b; border-radius: 6px; padding: 10px; height: 110px; overflow-y: auto; color: var(--text-muted); line-height: 1.4;"></div>
+        </div>
     </div>
 
     <script>
         let mqttClient = null;
         const myClientId = "client_" + Math.random().toString(16).substr(2, 8);
+        
+        // --- GENERADOR DE IDENTIDADES TEMPORALES ---
+        const prefixes = ["Ghost", "Net", "Phantom", "Crypto", "Proxy", "Viper", "Cyber", "Null", "Shadow"];
+        const suffixes = ["Node", "Daemon", "X", "Zero", "Core", "Shell", "Vector", "Link", "Protocol"];
+        const myAlias = prefixes[Math.floor(Math.random() * prefixes.length)] + "_" + suffixes[Math.floor(Math.random() * suffixes.length)] + "_" + Math.random().toString(16).substr(2, 4).toUpperCase();
 
-        // --- SISTEMA NATIVO DE NOTIFICACIONES PUSH ---
+        let pingInterval = null;
+        let peerTimeout = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let audioCtx = null;
+
+        // --- EFECTOS DE SONIDO DE TERMINAL RETRO (WEB AUDIO API) ---
+        function playCyberSound(type) {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'click') {
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(900, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.04, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.04);
+                } else if (type === 'receive') {
+                    osc.type = 'square'; osc.frequency.setValueAtTime(550, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(850, audioCtx.currentTime + 0.07);
+                    gain.gain.setValueAtTime(0.02, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+                } else if (type === 'destroy') {
+                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(30, audioCtx.currentTime + 0.25);
+                    gain.gain.setValueAtTime(0.06, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.25);
+                }
+            } catch(e) {}
+        }
+
+        // --- CONSOLA DE LOG EN TIEMPO REAL ---
+        function logToTerminal(text, type = 'info') {
+            const logBox = document.getElementById('terminalLog');
+            if (!logBox) return;
+            const time = new Date().toLocaleTimeString();
+            let color = 'var(--text-muted)';
+            if (type === 'success') color = 'var(--neon-green)';
+            if (type === 'warn') color = 'var(--neon-red)';
+            if (type === 'info') color = 'var(--neon-cyan)';
+            logBox.innerHTML += `<div style="color: ${color}">[${time}] ${text}</div>`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        // --- INDICADOR DE PÉRDIDA DE FOCO (PRIVACIDAD EXTREMA) ---
+        document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+                logToTerminal("ALERTA: Redirección de foco detectada. Ejecutando purga preventiva de memoria...", "warn");
+                document.getElementById('chatDisplay').innerHTML = '';
+                playCyberSound('destroy');
+            }
+        });
+
+        // --- NOTIFICACIONES PUSH ---
         function initNotificationSystem() {
             if (!("Notification" in window)) return;
             if (Notification.permission !== "granted" && Notification.permission !== "denied") {
@@ -218,10 +291,7 @@
 
         function triggerPushNotification(titulo, mensaje) {
             if (document.hidden && Notification.permission === "granted") {
-                new Notification(titulo, {
-                    body: mensaje,
-                    icon: "https://supabase.com/favicon/favicon-32x32.png"
-                });
+                new Notification(titulo, { body: mensaje, icon: "https://supabase.com/favicon/favicon-32x32.png" });
             }
         }
 
@@ -238,6 +308,8 @@
                 const badge = document.getElementById('userTokenBadge');
                 if (badge) badge.innerText = `[TOKEN: ${token}]`;
                 
+                document.getElementById('identityBadge').innerText = `IDENTIDAD_RED: [${myAlias}]`;
+                logToTerminal(`SISTEMA INICIALIZADO: Nodo autenticado como ${myAlias}`, 'success');
                 initNotificationSystem();
             } else {
                 localStorage.removeItem('cyber_access_token');
@@ -251,6 +323,7 @@
         const SUPABASE_ANON_KEY = "sb_publishable_b9vYh56PnflE4sFndw9ZcQ_RQsZZ1EF";
 
         function validateDepositAutomatically() {
+            playCyberSound('click');
             const reference = document.getElementById('comprobanteInput').value.trim();
             const botStatus = document.getElementById('botStatus');
 
@@ -261,6 +334,7 @@
 
             botStatus.innerText = "BOT_SISTEMA: Consultando base de datos descentralizada...";
             botStatus.style.color = "var(--neon-cyan)";
+            logToTerminal(`SUPABASE: Validando secuencial #${reference}...`, 'info');
 
             const url = `${SUPABASE_URL}/rest/v1/pagos?comprobante=eq.${reference}`;
 
@@ -277,6 +351,7 @@
                 if (data && data.length > 0) {
                     botStatus.style.color = "var(--neon-green)";
                     botStatus.innerText = "BOT_SISTEMA: Depósito verificado con éxito.";
+                    logToTerminal(`SUPABASE: Registro encontrado. Transacción autorizada.`, 'success');
 
                     setTimeout(() => {
                         const tokenUnico = btoa("TOKEN_" + reference).substring(0, 12).toUpperCase();
@@ -292,17 +367,19 @@
                 } else {
                     botStatus.style.color = "var(--neon-red)";
                     botStatus.innerText = "BOT_SISTEMA: Comprobante no registrado en la base de datos aún.";
+                    logToTerminal(`SUPABASE: Secuencial inválido o inexistente.`, 'warn');
                 }
             })
             .catch(error => {
                 botStatus.style.color = "var(--neon-red)";
                 botStatus.innerText = "BOT_SISTEMA: Error de enlace con el clúster de Supabase.";
-                console.error(error);
+                logToTerminal("ERROR CRÍTICO: Fallo de enlace con clúster Supabase.", "warn");
             });
         }
 
         // --- CÓDIGO CORE DEL CHAT ---
         function connectToBroker() {
+            playCyberSound('click');
             const room = document.getElementById('roomInput').value.trim();
             const status = document.getElementById('statusIndicator');
             const btn = document.getElementById('connBtn');
@@ -318,15 +395,50 @@
                 btn.innerText = "Enlazado";
                 btn.classList.add('active-btn');
                 mqttClient.subscribe(`pocketsec/chat/${room}`);
+                logToTerminal(`MQTT: Enlazado al clúster canal [${room}].`, 'success');
+                
+                // Activar el detector de presencia automático
+                startHeartbeat(room);
             });
 
             mqttClient.on('message', (topic, message) => {
                 try {
                     const data = JSON.parse(message.toString());
-                    if (data.type === 'chat' && data.sender !== myClientId) renderIncomingMessage(data);
-                    else if (data.type === 'destroy') executeTargetDestruction(data.id);
+                    if (data.type === 'ping') {
+                        mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify({ type: 'pong', sender: myClientId, alias: myAlias }));
+                        updatePeerPresence(data.alias);
+                    } else if (data.type === 'pong') {
+                        updatePeerPresence(data.alias);
+                    } else if (data.type === 'chat' && data.sender !== myClientId) {
+                        renderIncomingMessage(data);
+                    } else if (data.type === 'destroy') {
+                        executeTargetDestruction(data.id);
+                    }
                 } catch (e) {}
             });
+        }
+
+        // --- DETECTOR DE PRESENCIA (PING-PONG) ---
+        function startHeartbeat(room) {
+            if (pingInterval) clearInterval(pingInterval);
+            pingInterval = setInterval(() => {
+                if (mqttClient && mqttClient.connected) {
+                    mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify({ type: 'ping', sender: myClientId, alias: myAlias }));
+                }
+            }, 8000);
+        }
+
+        function updatePeerPresence(peerAlias) {
+            const badge = document.getElementById('peerStatusBadge');
+            badge.innerText = `[${peerAlias.toUpperCase()}: ONLINE]`;
+            badge.style.color = 'var(--neon-green)';
+            
+            if (peerTimeout) clearTimeout(peerTimeout);
+            peerTimeout = setTimeout(() => {
+                badge.innerText = '[NODO_REMOTO: OFFLINE]';
+                badge.style.color = 'var(--neon-red)';
+                logToTerminal("SISTEMA P2P: Pérdida de traza del nodo remoto.", "warn");
+            }, 18000);
         }
 
         function runCipherEngine(text, algo, mode) {
@@ -356,14 +468,16 @@
         }
 
         function sendMessage() {
+            playCyberSound('click');
             const room = document.getElementById('roomInput').value.trim();
             let payload = document.getElementById('payloadText').value.trim();
             const algo = document.getElementById('algoSelect').value;
             if (!mqttClient || !mqttClient.connected || !payload) return;
 
+            logToTerminal(`CIFRADOR: Ofuscando texto plano con algoritmo [${algo.toUpperCase()}]`, 'info');
             payload = runCipherEngine(payload, algo, 'encode');
             const uniqueMsgId = "msg_" + Math.random().toString(36).substr(2, 9) + Date.now().toString().slice(-4);
-            const packet = { type: 'chat', id: uniqueMsgId, sender: myClientId, algo: algo, text: payload, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
+            const packet = { type: 'chat', id: uniqueMsgId, sender: myClientId, alias: myAlias, algo: algo, text: payload, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
 
             mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify(packet));
             renderOutgoingMessage(packet);
@@ -371,6 +485,7 @@
         }
 
         function handleImageUpload(event) {
+            playCyberSound('click');
             const room = document.getElementById('roomInput').value.trim();
             if (!mqttClient || !mqttClient.connected) return alert("ERROR CRÍTICO: Debe enlazarse a un canal antes de transmitir archivos.");
 
@@ -382,11 +497,11 @@
                 const base64Image = e.target.result;
                 const uniqueMsgId = "msg_" + Math.random().toString(36).substr(2, 9) + Date.now().toString().slice(-4);
                 
-                // Transmisión directa sin algoritmos de cifrado secundarios añadidos
                 const packet = { 
                     type: 'chat', 
                     id: uniqueMsgId, 
                     sender: myClientId, 
+                    alias: myAlias,
                     algo: 'plain', 
                     text: base64Image, 
                     isImage: true, 
@@ -395,9 +510,67 @@
 
                 mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify(packet));
                 renderOutgoingMessage(packet);
+                logToTerminal("PAQUETE MULTIMEDIA: Imagen inyectada sin cifrado (Stream Directo).", "success");
             };
             reader.readAsDataURL(file);
             event.target.value = ""; 
+        }
+
+        // --- NUEVA FUNCIÓN: NOTAS DE VOZ AUTODESTRUIBLES ---
+        function toggleVoiceRecording() {
+            playCyberSound('click');
+            const micBtn = document.getElementById('micBtn');
+            if (!isRecording) {
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then(stream => {
+                        mediaRecorder = new MediaRecorder(stream);
+                        audioChunks = [];
+                        mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                        mediaRecorder.onstop = () => {
+                            const audioBlob = new Blob(audioChunks, { type: 'audio/ogg; codecs=opus' });
+                            const reader = new FileReader();
+                            reader.onload = function(e) {
+                                sendVoiceNote(e.target.result);
+                            };
+                            reader.readAsDataURL(audioBlob);
+                            stream.getTracks().forEach(track => track.stop());
+                        };
+                        mediaRecorder.start();
+                        isRecording = true;
+                        micBtn.innerText = "🛑 DETENER (MÁX 5S)";
+                        micBtn.style.color = "var(--neon-red)";
+                        logToTerminal("GRABADOR: Capturando flujo de audio P2P...", "info");
+                        
+                        setTimeout(() => { if (isRecording) toggleVoiceRecording(); }, 5000);
+                    }).catch(err => {
+                        logToTerminal("AUDIO ERROR: Acceso denegado al hardware de captura.", "warn");
+                    });
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                micBtn.innerText = "🎙️ GRABAR AUDIO";
+                micBtn.style.color = "var(--neon-purple)";
+            }
+        }
+
+        function sendVoiceNote(base64Audio) {
+            const room = document.getElementById('roomInput').value.trim();
+            if (!mqttClient || !mqttClient.connected) return;
+            const uniqueMsgId = "msg_" + Math.random().toString(36).substr(2, 9) + Date.now().toString().slice(-4);
+            
+            const packet = {
+                type: 'chat',
+                id: uniqueMsgId,
+                sender: myClientId,
+                alias: myAlias,
+                algo: 'plain',
+                text: base64Audio,
+                isAudio: true,
+                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+            };
+            mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify(packet));
+            renderOutgoingMessage(packet);
+            logToTerminal("PAQUETE AUDIO: Stream de voz transmitido sin cifrar.", "success");
         }
 
         function renderOutgoingMessage(data) {
@@ -405,11 +578,14 @@
             const msgDiv = document.createElement('div');
             msgDiv.className = "msg outgoing"; msgDiv.id = `target-${data.id}`;
             
-            if (data.isImage) {
-                // Renderizado inmediato para ti con contador de 5 segundos activo
+            if (data.isImage || data.isAudio) {
+                let mediaHtml = data.isImage 
+                    ? `<img src="${data.text}" class="chat-img" onclick="window.open(this.src)">`
+                    : `<audio src="${data.text}" controls autoplay class="cyber-audio"></audio>`;
+
                 msgDiv.innerHTML = `
-                    <span class="meta">TÚ (STREAM) - ${data.time}</span>
-                    <img src="${data.text}" class="chat-img" onclick="window.open(this.src)">
+                    <span class="meta">${data.alias.toUpperCase()} (STREAM) - ${data.time}</span>
+                    ${mediaHtml}
                     <div id="count-${data.id}" style="color: var(--neon-red); font-family: 'Courier New', monospace; font-size: 0.7rem; margin-top: 5px; font-weight: bold;">⏱️ Autodestrucción: 5s</div>
                 `;
                 display.appendChild(msgDiv); display.scrollTop = display.scrollHeight;
@@ -425,24 +601,29 @@
                     }
                 }, 1000);
             } else {
-                msgDiv.innerHTML = `<span class="meta">TÚ (${data.algo.toUpperCase()}) - ${data.time}</span><span>${data.text}</span>`;
+                msgDiv.innerHTML = `<span class="meta">${data.alias.toUpperCase()} (${data.algo.toUpperCase()}) - ${data.time}</span><span>${data.text}</span>`;
                 display.appendChild(msgDiv); display.scrollTop = display.scrollHeight;
             }
         }
 
         function renderIncomingMessage(data) {
+            playCyberSound('receive');
             const display = document.getElementById('chatDisplay');
             const msgDiv = document.createElement('div');
             msgDiv.className = "msg incoming"; msgDiv.id = `target-${data.id}`;
             
-            if (data.isImage) {
-                // Renderizado sin intermediación de descifrado + Autodestrucción inmediata
+            if (data.isImage || data.isAudio) {
+                let mediaHtml = data.isImage 
+                    ? `<img src="${data.text}" class="chat-img" onclick="window.open(this.src)">`
+                    : `<audio src="${data.text}" controls autoplay class="cyber-audio"></audio>`;
+
                 msgDiv.innerHTML = `
-                    <span class="meta">NODO_RECEP (STREAM) - ${data.time}</span>
-                    <img src="${data.text}" class="chat-img" onclick="window.open(this.src)">
+                    <span class="meta">${data.alias.toUpperCase()} (STREAM) - ${data.time}</span>
+                    ${mediaHtml}
                     <div id="count-${data.id}" style="color: var(--neon-red); font-family: 'Courier New', monospace; font-size: 0.7rem; margin-top: 5px; font-weight: bold;">⏱️ Autodestrucción: 5s</div>
                 `;
                 display.appendChild(msgDiv); display.scrollTop = display.scrollHeight;
+                logToTerminal(`FLUJO ENTRANTED: Datos multimedia efímeros de [${data.alias}]`, 'info');
 
                 let timeLeft = 5;
                 const countdown = setInterval(() => {
@@ -459,20 +640,21 @@
                     }
                 }, 1000);
 
-                triggerPushNotification("Mensaje P2P Entrante", "Has recibido una imagen temporal (5s).");
+                triggerPushNotification("Mensaje P2P Entrante", `Has recibido multimedia efímero de ${data.alias}.`);
             } else {
-                // El flujo de los mensajes de texto normales se conserva igual
                 msgDiv.setAttribute('data-id', data.id); 
                 msgDiv.setAttribute('data-cipher', data.text); 
                 msgDiv.setAttribute('data-algo', data.algo);
-                msgDiv.innerHTML = `<span class="meta">NODO_RECEP (${data.algo.toUpperCase()}) - ${data.time}</span><br><span class="payload-body">${data.text}</span><br><button class="btn" style="padding:4px 10px; font-size:0.7rem; margin-top:6px; border-color:var(--neon-green); color:var(--neon-green);" onclick="decryptInPlace(this)">🔓 Descifrar</button>`;
+                msgDiv.innerHTML = `<span class="meta">${data.alias.toUpperCase()} (${data.algo.toUpperCase()}) - ${data.time}</span><br><span class="payload-body">${data.text}</span><br><button class="btn" style="padding:4px 10px; font-size:0.7rem; margin-top:6px; border-color:var(--neon-green); color:var(--neon-green);" onclick="decryptInPlace(this)">🔓 Descifrar</button>`;
                 display.appendChild(msgDiv); display.scrollTop = display.scrollHeight;
+                logToTerminal(`FLUJO ENTRANTED: Bloque de texto cifrado recibido de [${data.alias}]`, 'info');
 
-                triggerPushNotification("Mensaje P2P Entrante", "Has recibido una transmisión cifrada de texto.");
+                triggerPushNotification("Mensaje P2P Entrante", `Transmisión cifrada de ${data.alias}.`);
             }
         }
 
         function decryptInPlace(buttonElement) {
+            playCyberSound('click');
             const msgDiv = buttonElement.closest('.msg');
             const msgId = msgDiv.getAttribute('data-id');
             const encryptedText = msgDiv.getAttribute('data-cipher');
@@ -486,6 +668,7 @@
             textSpan.innerText = decryptedText; 
             textSpan.style.color = "var(--neon-green)"; 
             textSpan.style.fontWeight = "600";
+            logToTerminal(`PROCESADOR: Payload descifrado con éxito.`, 'success');
 
             let timeLeft = decryptedText.length < 25 ? 5 : (decryptedText.length <= 90 ? 10 : 25);
             buttonElement.className = "countdown-indicator"; 
@@ -508,8 +691,13 @@
         }
 
         function executeTargetDestruction(id) {
+            playCyberSound('destroy');
             const element = document.getElementById(`target-${id}`);
-            if (element) { element.style.opacity = '0'; setTimeout(() => element.remove(), 400); }
+            if (element) { 
+                element.style.opacity = '0'; 
+                setTimeout(() => element.remove(), 400); 
+                logToTerminal(`PURGA: Bloque [${id}] eliminado completamente de la RAM.`, 'warn');
+            }
         }
 
         window.onload = function() {
