@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>[CRYPTO_POCKET_P2P] - Cyber Interface</title>
+    <title>[CRYPTO_POCKET_P2P] - Secure Deposit Gateway</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
@@ -17,15 +17,9 @@
             --text-main: #e2e8f0;
             --text-muted: #64748b;
             --border-glow: rgba(0, 240, 255, 0.15);
-            --border-glow-purple: rgba(157, 78, 221, 0.15);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
             background-color: var(--bg-main);
@@ -34,7 +28,7 @@
                 linear-gradient(90deg, rgba(0, 240, 255, 0.02) 1px, transparent 1px);
             background-size: 20px 20px;
             color: var(--text-main);
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: system-ui, -apple-system, sans-serif;
             padding: 16px;
             display: flex;
             justify-content: center;
@@ -42,275 +36,131 @@
             min-height: 100vh;
         }
 
-        .wrapper {
-            width: 100%;
-            max-width: 900px; /* Expansión ideal para PC y Tablets */
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
+        .wrapper { width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 16px; position: relative; }
+        .blur-content { filter: blur(10px); pointer-events: none; user-select: none; transition: filter 0.5s ease; }
 
-        header {
-            text-align: center;
-            padding-bottom: 8px;
-            position: relative;
-        }
+        header { text-align: center; padding-bottom: 8px; }
+        header h1 { font-family: 'Courier New', monospace; font-size: 1.5rem; font-weight: 900; color: var(--neon-cyan); text-shadow: 0 0 10px rgba(0, 240, 255, 0.5); }
+        header p { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; margin-top: 4px; }
 
-        header h1 {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 1.5rem;
-            font-weight: 900;
-            letter-spacing: 2px;
-            color: var(--neon-cyan);
-            text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
-        }
-
-        header p {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-top: 4px;
-        }
-
-        /* COMPONENTES BASE DE LA INTERFAZ */
         .cyber-panel {
             background: linear-gradient(135deg, var(--bg-card) 0%, #04070d 100%);
             border: 1px solid rgba(0, 240, 255, 0.2);
             box-shadow: 0 4px 20px var(--border-glow);
             border-radius: 12px;
             padding: 16px;
-            position: relative;
-            overflow: hidden;
         }
 
-        .cyber-panel::before {
-            content: '';
+        .panel-title { font-family: 'Courier New', monospace; font-size: 0.75rem; font-weight: bold; color: var(--neon-cyan); margin-bottom: 10px; text-transform: uppercase; display: flex; align-items: center; gap: 6px; }
+        .panel-title::before { content: ''; display: inline-block; width: 6px; height: 6px; background: var(--neon-cyan); box-shadow: 0 0 6px var(--neon-cyan); }
+
+        .row-inline { display: flex; gap: 12px; width: 100%; }
+        input[type="text"], select, textarea { background-color: var(--bg-input); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 12px; color: #fff; font-size: 0.95rem; outline: none; width: 100%; }
+        input[type="text"]:focus { border-color: var(--neon-cyan); }
+
+        .btn { background: transparent; border: 1px solid var(--neon-cyan); color: var(--neon-cyan); padding: 12px 24px; border-radius: 8px; font-family: 'Courier New', monospace; font-weight: bold; font-size: 0.85rem; cursor: pointer; text-transform: uppercase; transition: all 0.3s ease; text-align: center; }
+        .btn:hover { background: rgba(0, 240, 255, 0.08); box-shadow: 0 0 15px rgba(0, 240, 255, 0.3); }
+        .btn.active-btn { border-color: var(--neon-green); color: var(--neon-green); }
+
+        .chat-box { background: var(--bg-input); border: 1px solid rgba(0, 240, 255, 0.1); border-radius: 10px; height: 320px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+        .msg { max-width: 80%; padding: 12px 16px; border-radius: 12px; font-size: 0.95rem; line-height: 1.5; word-break: break-word; }
+        .msg.incoming { background: linear-gradient(135deg, #09121f 0%, #050b14 100%); border-left: 4px solid var(--neon-cyan); align-self: flex-start; }
+        .msg.outgoing { background: linear-gradient(135deg, #180d2b 0%, #0f071c 100%); border-right: 4px solid var(--neon-purple); align-self: flex-end; }
+        .msg .meta { font-family: 'Courier New', monospace; font-size: 0.65rem; color: var(--text-muted); margin-bottom: 6px; display: block; }
+
+        /* INTERFAZ DEL PAYWALL */
+        .paywall-overlay {
             position: absolute;
-            top: 0; right: 0;
-            width: 10px; height: 10px;
-            background: var(--neon-cyan);
-            clip-path: polygon(100% 0, 0 0, 100% 100%);
-        }
-
-        .panel-title {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.75rem;
-            font-weight: bold;
-            color: var(--neon-cyan);
-            margin-bottom: 10px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(2, 4, 8, 0.93);
+            z-index: 9999;
             display: flex;
+            justify-content: center;
             align-items: center;
-            gap: 6px;
-        }
-
-        .panel-title::before {
-            content: '';
-            display: inline-block;
-            width: 6px; height: 6px;
-            background: var(--neon-cyan);
-            box-shadow: 0 0 6px var(--neon-cyan);
-        }
-
-        /* FILAS E INPUTS RESPONSIVOS */
-        .row-inline {
-            display: flex;
-            flex-direction: row;
-            gap: 12px;
-            width: 100%;
-        }
-
-        input[type="text"], select, textarea {
-            background-color: var(--bg-input);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 8px;
-            padding: 12px;
-            color: #fff;
-            font-size: 0.95rem;
-            outline: none;
-            transition: all 0.3s ease;
-            width: 100%;
-        }
-
-        input[type="text"]:focus, select:focus, textarea:focus {
-            border-color: var(--neon-cyan);
-            box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
-        }
-
-        input[type="text"]::placeholder, textarea::placeholder {
-            color: #334155;
-            font-style: italic;
-        }
-
-        /* BOTONES MECÁNICOS CIBERNÉTICOS */
-        .btn {
-            background: transparent;
-            border: 1px solid var(--neon-cyan);
-            color: var(--neon-cyan);
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-family: 'Courier New', Courier, monospace;
-            font-weight: bold;
-            font-size: 0.85rem;
-            cursor: pointer;
-            text-transform: uppercase;
-            transition: all 0.3s ease;
-            letter-spacing: 1px;
-            white-space: nowrap;
-            box-shadow: 0 0 8px rgba(0, 240, 255, 0.1);
-        }
-
-        .btn:hover {
-            background: rgba(0, 240, 255, 0.08);
-            box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
-        }
-
-        .btn.active-btn {
-            border-color: var(--neon-green);
-            color: var(--neon-green);
-            background: rgba(57, 255, 20, 0.03);
-            box-shadow: 0 0 10px rgba(57, 255, 20, 0.1);
-        }
-
-        .btn.active-btn:hover {
-            background: rgba(57, 255, 20, 0.08);
-            box-shadow: 0 0 15px rgba(57, 255, 20, 0.3);
-        }
-
-        /* MONITOR DE COMUNICACIÓN ADAPTATIVO */
-        .chat-box {
-            background: var(--bg-input);
-            border: 1px solid rgba(0, 240, 255, 0.1);
-            border-radius: 10px;
-            height: 320px; /* Más cómodo tanto para PC como móvil */
-            overflow-y: auto;
             padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
         }
 
-        /* ADAPTACIÓN DE TEXTO EN MENSAJES (SANS-SERIF DE ALTA LEGIBILIDAD) */
-        .msg {
-            max-width: 80%;
-            padding: 12px 16px;
-            border-radius: 12px;
-            font-size: 0.95rem; /* Tamaño optimizado para leer párrafos cómodamente */
-            line-height: 1.5;
-            word-break: break-word;
-            white-space: pre-wrap;
-            transition: opacity 0.4s ease;
-            position: relative;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        .paywall-card {
+            background: #0b1322;
+            border: 2px solid var(--neon-cyan);
+            box-shadow: 0 0 35px rgba(0, 240, 255, 0.2);
+            border-radius: 16px;
+            max-width: 480px;
+            width: 100%;
+            padding: 24px;
         }
 
-        .msg.incoming {
-            background: linear-gradient(135deg, #09121f 0%, #050b14 100%);
-            border-left: 4px solid var(--neon-cyan);
-            align-self: flex-start;
-            border-top-left-radius: 2px;
+        .paywall-card h2 { font-family: 'Courier New', monospace; color: var(--neon-cyan); font-size: 1.3rem; margin-bottom: 12px; text-shadow: 0 0 8px rgba(0, 240, 255, 0.4); text-align: center; }
+        .paywall-card p { font-size: 0.85rem; color: var(--text-main); margin-bottom: 16px; line-height: 1.4; text-align: center; }
+
+        .bank-details-box {
+            background: rgba(0,0,0,0.5);
+            border: 1px dashed rgba(0, 240, 255, 0.3);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 16px;
+            font-size: 0.85rem;
         }
 
-        .msg.outgoing {
-            background: linear-gradient(135deg, #180d2b 0%, #0f071c 100%);
-            border-right: 4px solid var(--neon-purple);
-            align-self: flex-end;
-            border-top-right-radius: 2px;
-        }
+        .bank-line { display: flex; justify-content: space-between; margin-bottom: 6px; }
+        .bank-line span:first-child { color: var(--text-muted); font-family: 'Courier New', monospace; }
+        .bank-line span:last-child { color: #fff; font-weight: bold; }
 
-        /* METADATOS EN MONOESPACIADO CIBERNÉTICO */
-        .msg .meta {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            margin-bottom: 6px;
-            display: block;
-            letter-spacing: 0.5px;
-        }
-
-        /* INTERRUPTORES DE COMANDO DINÁMICOS */
-        .msg .decrypt-btn {
-            background: rgba(57, 255, 20, 0.05);
-            border: 1px solid var(--neon-green);
-            color: var(--neon-green);
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.7rem;
-            padding: 6px 12px;
+        .status-terminal {
+            background: #010204;
+            border: 1px solid #1e293b;
             border-radius: 6px;
-            margin-top: 8px;
-            cursor: pointer;
-            display: inline-block;
-            font-weight: bold;
-            text-transform: uppercase;
-            transition: all 0.2s ease;
-        }
-
-        .msg .decrypt-btn:hover {
-            background: rgba(57, 255, 20, 0.15);
-            box-shadow: 0 0 10px rgba(57, 255, 20, 0.2);
-        }
-
-        .msg .countdown-indicator {
-            background: rgba(255, 51, 51, 0.05);
-            border: 1px solid var(--neon-red);
-            color: var(--neon-red);
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.7rem;
-            padding: 6px 12px;
-            border-radius: 6px;
-            margin-top: 8px;
-            display: inline-block;
-            font-weight: bold;
-        }
-
-        .crypto-box {
-            border-color: rgba(157, 78, 221, 0.2);
-            box-shadow: 0 4px 20px var(--border-glow-purple);
-        }
-        
-        .crypto-box::before {
-            background: var(--neon-purple);
-        }
-
-        .crypto-box label {
-            display: block;
-            font-family: 'Courier New', Courier, monospace;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
             font-size: 0.75rem;
             color: var(--neon-purple);
-            margin-bottom: 6px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            font-weight: bold;
+            margin-top: 12px;
+            text-align: center;
         }
 
-        /* MEDIA QUERIES PARA ADAPTACIÓN AUTOMÁTICA EN DISPOSITIVOS GRANDES (PC/TABLET) */
         @media (min-width: 768px) {
-            header h1 { font-size: 1.8rem; }
-            .chat-box { height: 420px; } /* Más alto en pantallas grandes */
-            
-            /* Distribución en dos columnas para el panel de envío en PC */
-            .send-grid {
-                display: grid;
-                grid-template-columns: 1fr 280px;
-                gap: 16px;
-                align-items: end;
-            }
-            .send-controls {
-                display: flex;
-                flex-direction: column;
-                gap: 12px;
-            }
+            .chat-box { height: 420px; }
+            .send-grid { display: grid; grid-template-columns: 1fr 280px; gap: 16px; align-items: end; }
+            .send-controls { display: flex; flex-direction: column; gap: 12px; }
         }
     </style>
 </head>
 <body>
 
-    <div class="wrapper">
+    <div class="paywall-overlay" id="paywallZone">
+        <div class="paywall-card">
+            <h2>[SISTEMA_DE_DEPOSITOS_P2P]</h2>
+            <p>Ejecuta tu transferencia bancaria. El bot del nodo verificará el número de comprobante de forma automática.</p>
+            
+            <div class="bank-details-box">
+                <div style="text-align: center; color: var(--neon-green); font-weight: bold; margin-bottom: 10px; font-family: 'Courier New', monospace; font-size: 1.1rem;">
+                    COSTO INTERCONEXIÓN: $4.99 / MES
+                </div>
+                <div class="bank-line"><span>Banco:</span> <span>Banco Pichincha</span></div>
+                <div class="bank-line"><span>Tipo de Cuenta:</span> <span>Ahorros</span></div>
+                <div class="bank-line"><span>Número de Cuenta:</span> <span>2200000000</span></div>
+                <div class="bank-line"><span>Titular:</span> <span>Jose De la Rosa</span></div>
+                <div class="bank-line"><span>Email Avisos:</span> <span>josedelarosa18v@gmail.com</span></div>
+            </div>
+
+            <div>
+                <label style="font-size:0.7rem; color:var(--text-muted); display:block; margin-bottom:6px; text-transform:uppercase; font-family: 'Courier New', monospace;">Validación Automática de Transacción:</label>
+                <div class="row-inline">
+                    <input type="text" id="comprobanteInput" placeholder="Número de Comprobante / Secuencial" autocomplete="off" style="font-family: 'Courier New', monospace;">
+                    <button class="btn" style="border-color:var(--neon-green); color:var(--neon-green);" onclick="validateDepositAutomatically()">Verificar</button>
+                </div>
+            </div>
+
+            <div class="status-terminal" id="botStatus">
+                BOT_STATUS: Esperando inyección de comprobante...
+            </div>
+        </div>
+    </div>
+
+    <div class="wrapper blur-content" id="mainContentWrapper">
         <header>
             <h1>[CRYPTO_POCKET_P2P]</h1>
-            <p>Terminal Autoadaptable — Enlace Cripto Automático</p>
+            <p>Terminal Autoadaptable — Canal Seguro Activado</p>
         </header>
 
         <div class="cyber-panel">
@@ -329,13 +179,12 @@
         <div class="cyber-panel crypto-box">
             <div class="send-grid">
                 <div>
-                    <label>Bloque de Mensaje / Párrafo Seguro</label>
+                    <label style="color: var(--neon-purple); font-family: 'Courier New', monospace; font-size: 0.75rem; font-weight: bold; display: block; margin-bottom: 6px;">Bloque de Mensaje Seguro</label>
                     <textarea id="payloadText" rows="3" placeholder="Escriba aquí los datos o párrafos a transmitir..."></textarea>
                 </div>
-
                 <div class="send-controls">
                     <div>
-                        <label>Algoritmo de Inyección</label>
+                        <label style="color: var(--neon-purple); font-family: 'Courier New', monospace; font-size: 0.75rem; font-weight: bold; display: block; margin-bottom: 6px;">Algoritmo</label>
                         <select id="algoSelect">
                             <option value="base64">Base64 (UTF-8)</option>
                             <option value="hex">Hexadecimal</option>
@@ -352,19 +201,88 @@
         let mqttClient = null;
         const myClientId = "client_" + Math.random().toString(16).substr(2, 8);
 
+        // --- MANEJO DE ESTADO DE ACCESO ---
+        function checkSubscriptionStatus() {
+            const token = localStorage.getItem('cyber_access_token');
+            const expiry = localStorage.getItem('cyber_access_expiry');
+            const now = Date.now();
+
+            if (token && expiry && now < parseInt(expiry)) {
+                document.getElementById('paywallZone').style.display = 'none';
+                document.getElementById('mainContentWrapper').classList.remove('blur-content');
+            } else {
+                document.getElementById('paywallZone').style.display = 'flex';
+                document.getElementById('mainContentWrapper').classList.add('blur-content');
+            }
+        }
+
+     // CONFIGURACIÓN DE TU PROYECTO SUPABASE
+const SUPABASE_URL = "https://TU_PROYECTO_ID.supabase.co";
+const SUPABASE_ANON_KEY = "TU_LLAVE_ANON_DE_SUPABASE"; // Esta llave es segura exponerla en GitHub con RLS activado
+
+function validateDepositAutomatically() {
+    const reference = document.getElementById('comprobanteInput').value.trim();
+    const botStatus = document.getElementById('botStatus');
+
+    if (!reference) {
+        alert("ERROR: Por favor ingrese el número de comprobante bancario.");
+        return;
+    }
+
+    botStatus.innerText = "BOT_SISTEMA: Consultando base de datos descentralizada...";
+    botStatus.style.color = "var(--neon-cyan)";
+
+    // Consulta directa al API REST de Supabase buscando el comprobante
+    const url = `${SUPABASE_URL}/rest/v1/pagos?comprobante=eq.${reference}`;
+
+    fetch(url, {
+        method: "GET",
+        headers: {
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json"
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Si el array contiene al menos un registro, significa que Make ya procesó el pago
+        if (data && data.length > 0) {
+            const pagoRealizado = data[0];
+            
+            botStatus.style.color = "var(--neon-green)";
+            botStatus.innerText = `BOT_SISTEMA: Depósito verificado. Monto: $${pagoRealizado.monto}`;
+
+            setTimeout(() => {
+                // Generamos el token único basado en el registro de la base de datos
+                const tokenUnico = btoa("TOKEN_" + reference).substring(0, 12).toUpperCase();
+                const expirationTime = Date.now() + (30 * 24 * 60 * 60 * 1000); // 30 días
+                
+                localStorage.setItem('cyber_access_token', tokenUnico);
+                localStorage.setItem('cyber_access_expiry', expirationTime.toString());
+                
+                alert(`¡Acceso Concedido!\nTu Token asignado es: ${tokenUnico}`);
+                checkSubscriptionStatus();
+            }, 1000);
+        } else {
+            botStatus.style.color = "var(--neon-red)";
+            botStatus.innerText = "BOT_SISTEMA: Comprobante no registrado en la base de datos aún.";
+        }
+    })
+    .catch(error => {
+        botStatus.style.color = "var(--neon-red)";
+        botStatus.innerText = "BOT_SISTEMA: Error de enlace con el clúster de Supabase.";
+        console.error(error);
+    });
+}
+        // --- CÓDIGO CORE DEL CHAT ---
         function connectToBroker() {
             const room = document.getElementById('roomInput').value.trim();
             const status = document.getElementById('statusIndicator');
             const btn = document.getElementById('connBtn');
-
-            if (!room) { 
-                alert("ERROR INTERNO: Se requiere un canal para mapear la red."); 
-                return; 
-            }
+            if (!room) return alert("ERROR INTERNO: Ingrese un canal."); 
             
             status.innerText = "ESTABLECIENDO ENLACE CON EL BROKER P2P...";
             status.style.color = "var(--neon-cyan)";
-
             mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
             mqttClient.on('connect', () => {
@@ -372,58 +290,33 @@
                 status.style.color = "var(--neon-green)";
                 btn.innerText = "Enlazado";
                 btn.classList.add('active-btn');
-                
                 mqttClient.subscribe(`pocketsec/chat/${room}`);
             });
 
             mqttClient.on('message', (topic, message) => {
                 try {
                     const data = JSON.parse(message.toString());
-                    if (data.type === 'chat' && data.sender !== myClientId) {
-                        renderIncomingMessage(data);
-                    } else if (data.type === 'destroy') {
-                        executeTargetDestruction(data.id);
-                    }
+                    if (data.type === 'chat' && data.sender !== myClientId) renderIncomingMessage(data);
+                    else if (data.type === 'destroy') executeTargetDestruction(data.id);
                 } catch (e) {}
-            });
-
-            mqttClient.on('error', () => {
-                status.innerText = "FALLO TÉCNICO: Conexión rechazada o caída.";
-                status.style.color = "var(--neon-red)";
             });
         }
 
-        // --- NÚCLEO CRIPTOGRÁFICO DE ALTA COBERTURA ---
         function runCipherEngine(text, algo, mode) {
             try {
                 if (algo === 'base64') {
-                    if (mode === 'encode') {
-                        const bytes = new TextEncoder().encode(text);
-                        const binString = String.fromCodePoint(...bytes);
-                        return btoa(binString);
-                    } else {
-                        const binString = atob(text.trim());
-                        const bytes = Uint8Array.from(binString, m => m.codePointAt(0));
-                        return new TextDecoder().decode(bytes);
-                    }
+                    if (mode === 'encode') return btoa(String.fromCodePoint(...new TextEncoder().encode(text)));
+                    else return new TextDecoder().decode(Uint8Array.from(atob(text.trim()), m => m.codePointAt(0)));
                 }
-                
                 if (algo === 'hex') {
-                    if (mode === 'encode') {
-                        return Array.from(new TextEncoder().encode(text))
-                                    .map(b => b.toString(16).padStart(2, '0'))
-                                    .join(' ');
-                    } else {
+                    if (mode === 'encode') return Array.from(new TextEncoder().encode(text)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                    else {
                         const cleanHex = text.replace(/\s+/g, '');
-                        if (cleanHex.length % 2 !== 0) return null;
                         const bytes = new Uint8Array(cleanHex.length / 2);
-                        for (let i = 0; i < cleanHex.length; i += 2) {
-                            bytes[i / 2] = parseInt(cleanHex.substr(i, 2), 16);
-                        }
+                        for (let i = 0; i < cleanHex.length; i += 2) bytes[i / 2] = parseInt(cleanHex.substr(i, 2), 16);
                         return new TextDecoder().decode(bytes);
                     }
                 }
-                
                 if (algo === 'caesar') {
                     const shift = (mode === 'encode') ? 3 : 23;
                     return text.replace(/[a-z]/gi, letter => {
@@ -431,9 +324,7 @@
                         return String.fromCharCode(((letter.charCodeAt(0) - start + shift) % 26) + start);
                     });
                 }
-            } catch (e) {
-                return null;
-            }
+            } catch (e) { return null; }
             return text;
         }
 
@@ -441,63 +332,32 @@
             const room = document.getElementById('roomInput').value.trim();
             let payload = document.getElementById('payloadText').value.trim();
             const algo = document.getElementById('algoSelect').value;
+            if (!mqttClient || !mqttClient.connected || !payload) return;
 
-            if (!mqttClient || !mqttClient.connected) {
-                alert("ERROR: Terminal fuera de línea. Enlace un canal primero.");
-                return;
-            }
-            if (!payload) return;
-
-            // Encriptación automática obligatoria previa a la transmisión
             payload = runCipherEngine(payload, algo, 'encode');
-
             const uniqueMsgId = "msg_" + Math.random().toString(36).substr(2, 9) + Date.now().toString().slice(-4);
-
-            const packet = {
-                type: 'chat',
-                id: uniqueMsgId,
-                sender: myClientId,
-                algo: algo,
-                text: payload,
-                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-            };
+            const packet = { type: 'chat', id: uniqueMsgId, sender: myClientId, algo: algo, text: payload, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
 
             mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify(packet));
             renderOutgoingMessage(packet);
-            
             document.getElementById('payloadText').value = ""; 
         }
 
         function renderOutgoingMessage(data) {
             const display = document.getElementById('chatDisplay');
             const msgDiv = document.createElement('div');
-            msgDiv.className = "msg outgoing";
-            msgDiv.id = `target-${data.id}`;
-            msgDiv.innerHTML = `
-                <span class="meta">TÚ (${data.algo.toUpperCase()}) - ${data.time}</span>
-                <span>${data.text}</span>
-            `;
-            display.appendChild(msgDiv);
-            display.scrollTop = display.scrollHeight;
+            msgDiv.className = "msg outgoing"; msgDiv.id = `target-${data.id}`;
+            msgDiv.innerHTML = `<span class="meta">TÚ (${data.algo.toUpperCase()}) - ${data.time}</span><span>${data.text}</span>`;
+            display.appendChild(msgDiv); display.scrollTop = display.scrollHeight;
         }
 
         function renderIncomingMessage(data) {
             const display = document.getElementById('chatDisplay');
             const msgDiv = document.createElement('div');
-            msgDiv.className = "msg incoming";
-            msgDiv.id = `target-${data.id}`;
-            
-            msgDiv.setAttribute('data-id', data.id);
-            msgDiv.setAttribute('data-cipher', data.text);
-            msgDiv.setAttribute('data-algo', data.algo);
-
-            msgDiv.innerHTML = `
-                <span class="meta">NODO_RECEP (${data.algo.toUpperCase()}) - ${data.time}</span>
-                <span class="payload-body">${data.text}</span><br>
-                <button class="decrypt-btn" onclick="decryptInPlace(this)">🔓 Descifrar Bloque</button>
-            `;
-            display.appendChild(msgDiv);
-            display.scrollTop = display.scrollHeight;
+            msgDiv.className = "msg incoming"; msgDiv.id = `target-${data.id}`;
+            msgDiv.setAttribute('data-id', data.id); msgDiv.setAttribute('data-cipher', data.text); msgDiv.setAttribute('data-algo', data.algo);
+            msgDiv.innerHTML = `<span class="meta">NODO_RECEP (${data.algo.toUpperCase()}) - ${data.time}</span><span class="payload-body">${data.text}</span><br><button class="btn" style="padding:4px 10px; font-size:0.7rem; margin-top:6px; border-color:var(--neon-green); color:var(--neon-green);" onclick="decryptInPlace(this)">🔓 Descifrar</button>`;
+            display.appendChild(msgDiv); display.scrollTop = display.scrollHeight;
         }
 
         function decryptInPlace(buttonElement) {
@@ -506,49 +366,21 @@
             const encryptedText = msgDiv.getAttribute('data-cipher');
             const algo = msgDiv.getAttribute('data-algo');
             const textSpan = msgDiv.querySelector('.payload-body');
-            
             let decryptedText = runCipherEngine(encryptedText, algo, 'decode');
 
-            if (!decryptedText) {
-                alert("ERROR: Integridad de datos rota durante el descifrado.");
-                return;
-            }
+            if (!decryptedText) return alert("ERROR: Datos corruptos.");
+            textSpan.innerText = decryptedText; textSpan.style.color = "var(--neon-green)"; textSpan.style.fontWeight = "600";
 
-            textSpan.innerText = decryptedText;
-            textSpan.style.color = "var(--neon-green)";
-            textSpan.style.fontWeight = "600";
-
-            // Tiempos dinámicos calculados según extensión física real del texto
-            let timeLeft = 20; 
-            const textLength = decryptedText.length;
-
-            if (textLength < 25) {
-                timeLeft = 5;
-            } else if (textLength <= 90) {
-                timeLeft = 10;
-            } else {
-                timeLeft = 25; // Tiempo extendido para párrafos completos en PC/Tablet
-            }
-
-            buttonElement.className = "countdown-indicator";
-            buttonElement.disabled = true;
-            buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
+            let timeLeft = decryptedText.length < 25 ? 5 : (decryptedText.length <= 90 ? 10 : 25);
+            buttonElement.className = "countdown-indicator"; buttonElement.disabled = true; buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
 
             const countdownInterval = setInterval(() => {
                 timeLeft--;
-                if(timeLeft > 0) {
-                    buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
-                } else {
+                if(timeLeft > 0) buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
+                else {
                     clearInterval(countdownInterval);
-                    
                     const room = document.getElementById('roomInput').value.trim();
-                    if (mqttClient && mqttClient.connected) {
-                        mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify({
-                            type: 'destroy',
-                            id: msgId
-                        }));
-                    }
-                    
+                    if (mqttClient && mqttClient.connected) mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify({ type: 'destroy', id: msgId }));
                     executeTargetDestruction(msgId);
                 }
             }, 1000);
@@ -556,12 +388,7 @@
 
         function executeTargetDestruction(id) {
             const element = document.getElementById(`target-${id}`);
-            if (element) {
-                element.style.opacity = '0';
-                setTimeout(() => {
-                    element.remove();
-                }, 400);
-            }
+            if (element) { element.style.opacity = '0'; setTimeout(() => element.remove(), 400); }
         }
     </script>
 </body>
