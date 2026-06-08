@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Pocket P2P Chat - AutoDestruct</title>
+    <title>Crypto Pocket P2P Chat - Clean Stealth</title>
+    <!-- Librería MQTT para sincronización instantánea entre celulares -->
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
@@ -79,6 +80,11 @@
 
         input[type="text"] { width: 100%; }
 
+        input[type="text"]::placeholder {
+            color: #334155;
+            font-style: italic;
+        }
+
         .btn {
             background: #000;
             border: 1px solid var(--neon-cyan);
@@ -117,7 +123,8 @@
             border-radius: 6px;
             font-size: 0.75rem;
             line-height: 1.4;
-            word-break: break-all; /* Evita que códigos largos rompan la interfaz móvil */
+            word-break: break-all;
+            transition: opacity 0.4s ease;
         }
 
         .msg.incoming {
@@ -140,7 +147,7 @@
             display: block;
         }
 
-        /* BOTONES INTERNOS DEL CHAT */
+        /* ELEMENTOS DINÁMICOS */
         .msg .decrypt-btn {
             background: rgba(57, 255, 20, 0.1);
             border: 1px solid var(--neon-green);
@@ -198,27 +205,25 @@
     <div class="wrapper">
         <header>
             <h1>[CRYPTO_POCKET_P2P]</h1>
-            <p>Comunicación Efímera Segura (20s de lectura)</p>
+            <p>Sala Privada Manual e Inyección de Red Silenciosa</p>
         </header>
 
+        <!-- CANAL DE RED -->
         <div class="conn-box">
-            <div style="font-size: 0.7rem; color: var(--neon-cyan); margin-bottom: 6px;">SALA EN COMÚN:</div>
+            <div style="font-size: 0.7rem; color: var(--neon-cyan); margin-bottom: 6px;">CREAR / ENLAZAR SALA PRIVADA:</div>
             <div class="row-inline">
-                <input type="text" id="roomInput" value="vincez_secure_99" placeholder="Clave de sala">
+                <input type="text" id="roomInput" placeholder="Escribe un código o canal secreto..." autocomplete="off">
                 <button class="btn" id="connBtn" onclick="connectToBroker()">Conectar</button>
             </div>
             <div id="statusIndicator" style="font-size: 0.65rem; color: var(--text-muted); margin-top: 5px; text-align: center;">
-                Estado: Desconectado de la red
+                Estado: Esperando ingreso de canal...
             </div>
         </div>
 
-        <div class="chat-box" id="chatDisplay">
-            <div class="msg incoming" id="sysMessage" style="border-left-color: var(--text-muted); max-width: 100%;">
-                <span class="meta">SISTEMA</span>
-                Los mensajes entrantes se descifran directo aquí y se auto-destruyen en 20 segundos de forma permanente.
-            </div>
-        </div>
+        <!-- MONITOR DE COMUNICACIÓN (COMPLETAMENTE LIMPIO) -->
+        <div class="chat-box" id="chatDisplay"></div>
 
+        <!-- MÓDULO DE ENVÍO -->
         <div class="crypto-box">
             <div>
                 <label>Mensaje a Transmitir</label>
@@ -255,29 +260,32 @@
             const status = document.getElementById('statusIndicator');
             const btn = document.getElementById('connBtn');
 
-            if (!room) { alert("Ingresa un nombre de sala"); return; }
+            if (!room) { 
+                alert("ERROR: Debes definir una clave o nombre de canal para establecer el enlace."); 
+                return; 
+            }
+            
             status.innerText = "Estableciendo enlace de red...";
             status.style.color = "var(--neon-cyan)";
 
             mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
             mqttClient.on('connect', () => {
-                status.innerText = `ENLACE ACTIVO // CANAL: ${room}`;
+                status.innerText = `ENLACE ACTIVO // CANAL OCULTO INTEGRADO`;
                 status.style.color = "var(--neon-green)";
                 btn.innerText = "Enlazado";
                 btn.classList.add('active-btn');
-                mqttClient.subscribe(`pocketsec/chat/${room}`);
                 
-                // Limpiar mensaje del sistema inicial
-                const sysMsg = document.getElementById('sysMessage');
-                if(sysMsg) sysMsg.remove();
+                mqttClient.subscribe(`pocketsec/chat/${room}`);
             });
 
             mqttClient.on('message', (topic, message) => {
                 try {
                     const data = JSON.parse(message.toString());
-                    if (data.sender !== myClientId) {
+                    if (data.type === 'chat' && data.sender !== myClientId) {
                         renderIncomingMessage(data);
+                    } else if (data.type === 'destroy') {
+                        executeTargetDestruction(data.id);
                     }
                 } catch (e) {}
             });
@@ -294,12 +302,16 @@
             const algo = document.getElementById('algoSelect').value;
 
             if (!mqttClient || !mqttClient.connected) {
-                alert("Primero debes enlazar la Sala.");
+                alert("Primero debes ingresar y enlazar un canal privado.");
                 return;
             }
             if (!payload) return;
 
+            const uniqueMsgId = "msg_" + Math.random().toString(36).substr(2, 9) + Date.now().toString().slice(-4);
+
             const packet = {
+                type: 'chat',
+                id: uniqueMsgId,
                 sender: myClientId,
                 algo: algo,
                 text: payload,
@@ -315,6 +327,7 @@
             const display = document.getElementById('chatDisplay');
             const msgDiv = document.createElement('div');
             msgDiv.className = "msg outgoing";
+            msgDiv.id = `target-${data.id}`;
             msgDiv.innerHTML = `
                 <span class="meta">TÚ (${data.algo.toUpperCase()}) - ${data.time}</span>
                 <span>${data.text}</span>
@@ -323,13 +336,13 @@
             display.scrollTop = display.scrollHeight;
         }
 
-        // --- RENDERIZADO CON FUNCIÓN DE DESCIFRADO INTEGRADO EN LUGAR ---
         function renderIncomingMessage(data) {
             const display = document.getElementById('chatDisplay');
             const msgDiv = document.createElement('div');
             msgDiv.className = "msg incoming";
+            msgDiv.id = `target-${data.id}`;
             
-            // Pasamos los parámetros de manera limpia usando atributos de datos HTML5 para evitar colisiones de comillas
+            msgDiv.setAttribute('data-id', data.id);
             msgDiv.setAttribute('data-cipher', data.text);
             msgDiv.setAttribute('data-algo', data.algo);
 
@@ -342,16 +355,15 @@
             display.scrollTop = display.scrollHeight;
         }
 
-        // --- LÓGICA CORE: DESCIFRADO LOCAL Y TEMPORIZADOR DE BORRADO ---
         function decryptInPlace(buttonElement) {
             const msgDiv = buttonElement.closest('.msg');
+            const msgId = msgDiv.getAttribute('data-id');
             const encryptedText = msgDiv.getAttribute('data-cipher');
             const algo = msgDiv.getAttribute('data-algo');
             const textSpan = msgDiv.querySelector('.payload-body');
             
             let decryptedText = "";
 
-            // Desencriptación en caliente
             try {
                 if (algo === 'base64') decryptedText = decodeURIComponent(escape(atob(encryptedText.trim())));
                 if (algo === 'hex') {
@@ -360,42 +372,61 @@
                     for (let i = 0; i < cleanHex.length; i += 2) str += String.fromCharCode(parseInt(cleanHex.substr(i, 2), 16));
                     decryptedText = str;
                 }
-                if (algo === 'caesar') decryptedText = caesarCipher(encryptedText, 23); // Inverso de rotación 3
+                if (algo === 'caesar') decryptedText = caesarCipher(encryptedText, 23);
             } catch(e) {
                 alert("Error técnico al procesar la cadena cifrada.");
                 return;
             }
 
-            // Cambiar el texto cifrado por el real en el chat
             textSpan.innerText = decryptedText;
             textSpan.style.color = "var(--neon-green)";
             textSpan.style.fontWeight = "bold";
 
-            // Iniciar cuenta regresiva en vez del botón
-            let timeLeft = 20;
+            let timeLeft = 20; 
+            const textLength = decryptedText.length;
+
+            if (textLength < 25) {
+                timeLeft = 5;
+            } else if (textLength <= 90) {
+                timeLeft = 10;
+            } else {
+                timeLeft = 20;
+            }
+
             buttonElement.className = "countdown-indicator";
             buttonElement.disabled = true;
-            buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
+            buttonElement.innerText = `⏱️ Destrucción: ${timeLeft}s`;
 
             const countdownInterval = setInterval(() => {
                 timeLeft--;
                 if(timeLeft > 0) {
-                    buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
+                    buttonElement.innerText = `⏱️ Destrucción: ${timeLeft}s`;
                 } else {
                     clearInterval(countdownInterval);
                     
-                    // Efecto visual rápido de desvanecimiento antes de borrar del DOM
-                    msgDiv.style.opacity = '0';
-                    msgDiv.style.transition = 'opacity 0.4s ease';
+                    const room = document.getElementById('roomInput').value.trim();
+                    if (mqttClient && mqttClient.connected) {
+                        mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify({
+                            type: 'destroy',
+                            id: msgId
+                        }));
+                    }
                     
-                    setTimeout(() => {
-                        msgDiv.remove(); // Borrado total del documento
-                    }, 400);
+                    executeTargetDestruction(msgId);
                 }
             }, 1000);
         }
 
-        // --- AYUDANTES DE ALGORITMOS ---
+        function executeTargetDestruction(id) {
+            const element = document.getElementById(`target-${id}`);
+            if (element) {
+                element.style.opacity = '0';
+                setTimeout(() => {
+                    element.remove();
+                }, 400);
+            }
+        }
+
         function caesarCipher(str, shift) {
             return str.replace(/[a-z]/gi, letter => {
                 const start = letter <= 'Z' ? 65 : 97;
