@@ -68,6 +68,10 @@
         .msg.outgoing { background: linear-gradient(135deg, #180d2b 0%, #0f071c 100%); border-right: 4px solid var(--neon-purple); align-self: flex-end; }
         .msg .meta { font-family: 'Courier New', monospace; font-size: 0.65rem; color: var(--text-muted); margin-bottom: 6px; display: block; }
 
+        .chat-img { max-width: 100%; max-height: 200px; border: 1px solid var(--neon-cyan); border-radius: 8px; margin-top: 8px; display: block; box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); cursor: pointer; transition: transform 0.2s; }
+        .chat-img:hover { transform: scale(1.02); }
+        .placeholder-text { color: var(--neon-purple); font-style: italic; font-size: 0.85rem; }
+
         /* INTERFAZ DEL PAYWALL */
         .paywall-overlay {
             position: absolute;
@@ -160,7 +164,7 @@
     <div class="wrapper blur-content" id="mainContentWrapper">
         <header>
             <h1>[CRYPTO_POCKET_P2P]</h1>
-            <p>Terminal Autoadaptable — Canal Seguro Activado</p>
+            <p>Terminal Autoadaptable — Canal Seguro Activado <span id="userTokenBadge" style="color: var(--neon-purple); font-weight: bold; margin-left: 10px;"></span></p>
         </header>
 
         <div class="cyber-panel">
@@ -179,7 +183,11 @@
         <div class="cyber-panel crypto-box">
             <div class="send-grid">
                 <div>
-                    <label style="color: var(--neon-purple); font-family: 'Courier New', monospace; font-size: 0.75rem; font-weight: bold; display: block; margin-bottom: 6px;">Bloque de Mensaje Seguro</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label style="color: var(--neon-purple); font-family: 'Courier New', monospace; font-size: 0.75rem; font-weight: bold;">Bloque de Mensaje Seguro</label>
+                        <label for="imageInput" style="color: var(--neon-cyan); cursor: pointer; font-size: 0.75rem; font-family: 'Courier New', monospace; font-weight: bold; text-shadow: 0 0 5px rgba(0, 240, 255, 0.4);">📎 ADJUNTAR IMAGEN</label>
+                        <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
+                    </div>
                     <textarea id="payloadText" rows="3" placeholder="Escriba aquí los datos o párrafos a transmitir..."></textarea>
                 </div>
                 <div class="send-controls">
@@ -201,6 +209,23 @@
         let mqttClient = null;
         const myClientId = "client_" + Math.random().toString(16).substr(2, 8);
 
+        // --- SISTEMA NATIVO DE NOTIFICACIONES PUSH ---
+        function initNotificationSystem() {
+            if (!("Notification" in window)) return;
+            if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
+        }
+
+        function triggerPushNotification(titulo, mensaje) {
+            if (document.hidden && Notification.permission === "granted") {
+                new Notification(titulo, {
+                    body: mensaje,
+                    icon: "https://supabase.com/favicon/favicon-32x32.png"
+                });
+            }
+        }
+
         // --- MANEJO DE ESTADO DE ACCESO ---
         function checkSubscriptionStatus() {
             const token = localStorage.getItem('cyber_access_token');
@@ -210,70 +235,73 @@
             if (token && expiry && now < parseInt(expiry)) {
                 document.getElementById('paywallZone').style.display = 'none';
                 document.getElementById('mainContentWrapper').classList.remove('blur-content');
+                
+                const badge = document.getElementById('userTokenBadge');
+                if (badge) badge.innerText = `[TOKEN: ${token}]`;
+                
+                initNotificationSystem();
             } else {
+                localStorage.removeItem('cyber_access_token');
+                localStorage.removeItem('cyber_access_expiry');
                 document.getElementById('paywallZone').style.display = 'flex';
                 document.getElementById('mainContentWrapper').classList.add('blur-content');
             }
         }
 
-     // CONFIGURACIÓN DE TU PROYECTO SUPABASE
-const SUPABASE_URL = "https://htmbpmgigwjxatunhmbx.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_b9vYh56PnflE4sFndw9ZcQ_RQsZZ1EF"; // Esta llave es segura exponerla en GitHub con RLS activado
+        const SUPABASE_URL = "https://htmbpmgigwjxatunhmbx.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_b9vYh56PnflE4sFndw9ZcQ_RQsZZ1EF";
 
-function validateDepositAutomatically() {
-    const reference = document.getElementById('comprobanteInput').value.trim();
-    const botStatus = document.getElementById('botStatus');
+        function validateDepositAutomatically() {
+            const reference = document.getElementById('comprobanteInput').value.trim();
+            const botStatus = document.getElementById('botStatus');
 
-    if (!reference) {
-        alert("ERROR: Por favor ingrese el número de comprobante bancario.");
-        return;
-    }
+            if (!reference) {
+                alert("ERROR: Por favor ingrese el número de comprobante bancario.");
+                return;
+            }
 
-    botStatus.innerText = "BOT_SISTEMA: Consultando base de datos descentralizada...";
-    botStatus.style.color = "var(--neon-cyan)";
+            botStatus.innerText = "BOT_SISTEMA: Consultando base de datos descentralizada...";
+            botStatus.style.color = "var(--neon-cyan)";
 
-    // Consulta directa al API REST de Supabase buscando el comprobante
-    const url = `${SUPABASE_URL}/rest/v1/pagos?comprobante=eq.${reference}`;
+            const url = `${SUPABASE_URL}/rest/v1/pagos?comprobante=eq.${reference}`;
 
-    fetch(url, {
-        method: "GET",
-        headers: {
-            "apikey": SUPABASE_ANON_KEY,
-            "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-            "Content-Type": "application/json"
+            fetch(url, {
+                method: "GET",
+                headers: {
+                    "apikey": SUPABASE_ANON_KEY,
+                    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+                    "Content-Type": "application/json"
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.length > 0) {
+                    botStatus.style.color = "var(--neon-green)";
+                    botStatus.innerText = "BOT_SISTEMA: Depósito verificado con éxito.";
+
+                    setTimeout(() => {
+                        const tokenUnico = btoa("TOKEN_" + reference).substring(0, 12).toUpperCase();
+                        const unMesEnMilisegundos = 30 * 24 * 60 * 60 * 1000;
+                        const expirationTime = Date.now() + unMesEnMilisegundos; 
+                        
+                        localStorage.setItem('cyber_access_token', tokenUnico);
+                        localStorage.setItem('cyber_access_expiry', expirationTime.toString());
+                        
+                        alert(`¡Acceso Concedido!\nTu Token asignado es: ${tokenUnico}`);
+                        checkSubscriptionStatus();
+                    }, 1000);
+                } else {
+                    botStatus.style.color = "var(--neon-red)";
+                    botStatus.innerText = "BOT_SISTEMA: Comprobante no registrado en la base de datos aún.";
+                }
+            })
+            .catch(error => {
+                botStatus.style.color = "var(--neon-red)";
+                botStatus.innerText = "BOT_SISTEMA: Error de enlace con el clúster de Supabase.";
+                console.error(error);
+            });
         }
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Si el array contiene al menos un registro, significa que Make ya procesó el pago
-        if (data && data.length > 0) {
-            const pagoRealizado = data[0];
-            
-            botStatus.style.color = "var(--neon-green)";
-            botStatus.innerText = `BOT_SISTEMA: Depósito verificado. Monto: $${pagoRealizado.monto}`;
 
-            setTimeout(() => {
-                // Generamos el token único basado en el registro de la base de datos
-                const tokenUnico = btoa("TOKEN_" + reference).substring(0, 12).toUpperCase();
-                const expirationTime = Date.now() + (30 * 24 * 60 * 60 * 1000); // 30 días
-                
-                localStorage.setItem('cyber_access_token', tokenUnico);
-                localStorage.setItem('cyber_access_expiry', expirationTime.toString());
-                
-                alert(`¡Acceso Concedido!\nTu Token asignado es: ${tokenUnico}`);
-                checkSubscriptionStatus();
-            }, 1000);
-        } else {
-            botStatus.style.color = "var(--neon-red)";
-            botStatus.innerText = "BOT_SISTEMA: Comprobante no registrado en la base de datos aún.";
-        }
-    })
-    .catch(error => {
-        botStatus.style.color = "var(--neon-red)";
-        botStatus.innerText = "BOT_SISTEMA: Error de enlace con el clúster de Supabase.";
-        console.error(error);
-    });
-}
         // --- CÓDIGO CORE DEL CHAT ---
         function connectToBroker() {
             const room = document.getElementById('roomInput').value.trim();
@@ -343,11 +371,45 @@ function validateDepositAutomatically() {
             document.getElementById('payloadText').value = ""; 
         }
 
+        function handleImageUpload(event) {
+            const room = document.getElementById('roomInput').value.trim();
+            if (!mqttClient || !mqttClient.connected) return alert("ERROR CRÍTICO: Debe enlazarse a un canal antes de transmitir archivos.");
+
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Image = e.target.result;
+                const uniqueMsgId = "msg_" + Math.random().toString(36).substr(2, 9) + Date.now().toString().slice(-4);
+                
+                const packet = { 
+                    type: 'chat', 
+                    id: uniqueMsgId, 
+                    sender: myClientId, 
+                    algo: 'base64', 
+                    text: base64Image, 
+                    isImage: true, 
+                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+                };
+
+                mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify(packet));
+                renderOutgoingMessage(packet);
+            };
+            reader.readAsDataURL(file);
+            event.target.value = ""; 
+        }
+
         function renderOutgoingMessage(data) {
             const display = document.getElementById('chatDisplay');
             const msgDiv = document.createElement('div');
             msgDiv.className = "msg outgoing"; msgDiv.id = `target-${data.id}`;
-            msgDiv.innerHTML = `<span class="meta">TÚ (${data.algo.toUpperCase()}) - ${data.time}</span><span>${data.text}</span>`;
+            
+            let content = data.isImage 
+                ? `<img src="${data.text}" class="chat-img" onclick="window.open(this.src)">`
+                : `<span>${data.text}</span>`;
+
+            msgDiv.innerHTML = `<span class="meta">TÚ (${data.algo.toUpperCase()}) - ${data.time}</span>${content}`;
             display.appendChild(msgDiv); display.scrollTop = display.scrollHeight;
         }
 
@@ -355,32 +417,75 @@ function validateDepositAutomatically() {
             const display = document.getElementById('chatDisplay');
             const msgDiv = document.createElement('div');
             msgDiv.className = "msg incoming"; msgDiv.id = `target-${data.id}`;
-            msgDiv.setAttribute('data-id', data.id); msgDiv.setAttribute('data-cipher', data.text); msgDiv.setAttribute('data-algo', data.algo);
-            msgDiv.innerHTML = `<span class="meta">NODO_RECEP (${data.algo.toUpperCase()}) - ${data.time}</span><span class="payload-body">${data.text}</span><br><button class="btn" style="padding:4px 10px; font-size:0.7rem; margin-top:6px; border-color:var(--neon-green); color:var(--neon-green);" onclick="decryptInPlace(this)">🔓 Descifrar</button>`;
+            msgDiv.setAttribute('data-id', data.id); 
+            msgDiv.setAttribute('data-cipher', data.text); 
+            msgDiv.setAttribute('data-algo', data.algo);
+            if (data.isImage) msgDiv.setAttribute('data-image', 'true');
+
+            let content = '';
+            if (data.isImage) {
+                content = `<span class="payload-body" style="display:none;">${data.text}</span><span class="placeholder-text">[IMAGEN CIFRADA INTRANET]</span><br><button class="btn" style="padding:4px 10px; font-size:0.7rem; margin-top:6px; border-color:var(--neon-green); color:var(--neon-green);" onclick="decryptInPlace(this)">🔓 Descifrar Imagen</button>`;
+            } else {
+                content = `<span class="payload-body">${data.text}</span><br><button class="btn" style="padding:4px 10px; font-size:0.7rem; margin-top:6px; border-color:var(--neon-green); color:var(--neon-green);" onclick="decryptInPlace(this)">🔓 Descifrar</button>`;
+            }
+
+            msgDiv.innerHTML = `<span class="meta">NODO_RECEP (${data.algo.toUpperCase()}) - ${data.time}</span>${content}`;
             display.appendChild(msgDiv); display.scrollTop = display.scrollHeight;
+
+            triggerPushNotification("Mensaje P2P Entrante", data.isImage ? "Has recibido un bloque de imagen cifrado." : "Has recibido una transmisión cifrada de texto.");
         }
 
+        // --- FUNCIÓN DE DESCIFRADO Y DESCARGA INTEGRADA ---
         function decryptInPlace(buttonElement) {
             const msgDiv = buttonElement.closest('.msg');
             const msgId = msgDiv.getAttribute('data-id');
             const encryptedText = msgDiv.getAttribute('data-cipher');
             const algo = msgDiv.getAttribute('data-algo');
+            const isImage = msgDiv.getAttribute('data-image') === 'true';
             const textSpan = msgDiv.querySelector('.payload-body');
+            
             let decryptedText = runCipherEngine(encryptedText, algo, 'decode');
 
-            if (!decryptedText) return alert("ERROR: Datos corruptos.");
-            textSpan.innerText = decryptedText; textSpan.style.color = "var(--neon-green)"; textSpan.style.fontWeight = "600";
-
+            if (!decryptedText) return alert("ERROR: Datos corruptos o algoritmo incorrecto.");
+            
             let timeLeft = decryptedText.length < 25 ? 5 : (decryptedText.length <= 90 ? 10 : 25);
-            buttonElement.className = "countdown-indicator"; buttonElement.disabled = true; buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
+
+            if (isImage) {
+                const placeholder = msgDiv.querySelector('.placeholder-text');
+                if (placeholder) placeholder.remove();
+                
+                // Inyección limpia de la imagen descifrada junto con su respectivo botón de descarga nativa
+                textSpan.innerHTML = `
+                    <img src="${decryptedText}" class="chat-img" onclick="window.open(this.src)">
+                    <div style="margin-top: 8px;">
+                        <a href="${decryptedText}" download="P2P_IMG_${msgId}.png" class="btn" style="padding:4px 12px; font-size:0.7rem; border-color:var(--neon-cyan); color:var(--neon-cyan); text-decoration:none; display:inline-block; font-family:'Courier New', monospace;">📥 Descargar Imagen</a>
+                    </div>
+                `;
+                textSpan.style.display = 'block';
+                
+                // Forzamos un temporizador de 30 segundos fijo para dar tiempo de descargar archivos pesados
+                timeLeft = 30;
+            } else {
+                textSpan.innerText = decryptedText; 
+                textSpan.style.color = "var(--neon-green)"; 
+                textSpan.style.fontWeight = "600";
+            }
+
+            // Cambiar comportamiento del botón original para transformarlo en contador regresivo
+            buttonElement.className = "countdown-indicator"; 
+            buttonElement.disabled = true; 
+            buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
 
             const countdownInterval = setInterval(() => {
                 timeLeft--;
-                if(timeLeft > 0) buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
-                else {
+                if(timeLeft > 0) {
+                    buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
+                } else {
                     clearInterval(countdownInterval);
                     const room = document.getElementById('roomInput').value.trim();
-                    if (mqttClient && mqttClient.connected) mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify({ type: 'destroy', id: msgId }));
+                    if (mqttClient && mqttClient.connected) {
+                        mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify({ type: 'destroy', id: msgId }));
+                    }
                     executeTargetDestruction(msgId);
                 }
             }, 1000);
@@ -390,6 +495,10 @@ function validateDepositAutomatically() {
             const element = document.getElementById(`target-${id}`);
             if (element) { element.style.opacity = '0'; setTimeout(() => element.remove(), 400); }
         }
+
+        window.onload = function() {
+            checkSubscriptionStatus();
+        };
     </script>
 </body>
 </html>
