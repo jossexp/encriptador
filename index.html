@@ -3,201 +3,306 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Pocket P2P Chat - Clean Stealth</title>
-    <!-- Librería MQTT para sincronización instantánea entre celulares -->
+    <title>[CRYPTO_POCKET_P2P] - Cyber Interface</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
-            --bg-main: #05070c;
-            --bg-card: #0b111e;
+            --bg-main: #020408;
+            --bg-card: #070c14;
+            --bg-input: #010204;
             --neon-cyan: #00f0ff;
-            --neon-purple: #a100ff;
+            --neon-purple: #9d4edd;
             --neon-green: #39ff14;
             --neon-red: #ff3333;
             --text-main: #e2e8f0;
-            --text-muted: #475569;
-            --border: rgba(0, 240, 255, 0.2);
+            --text-muted: #64748b;
+            --border-glow: rgba(0, 240, 255, 0.15);
+            --border-glow-purple: rgba(157, 78, 221, 0.15);
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Courier New', Courier, monospace;
             -webkit-tap-highlight-color: transparent;
         }
 
         body {
             background-color: var(--bg-main);
+            background-image: 
+                linear-gradient(rgba(0, 240, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.02) 1px, transparent 1px);
+            background-size: 20px 20px;
             color: var(--text-main);
-            padding: 12px;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            padding: 16px;
             display: flex;
             justify-content: center;
+            align-items: center;
             min-height: 100vh;
         }
 
         .wrapper {
             width: 100%;
-            max-width: 460px;
+            max-width: 900px; /* Expansión ideal para PC y Tablets */
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
 
         header {
             text-align: center;
-            margin-bottom: 15px;
-            border-bottom: 1px dashed var(--neon-cyan);
-            padding-bottom: 10px;
+            padding-bottom: 8px;
+            position: relative;
         }
 
         header h1 {
-            font-size: 1.2rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.5rem;
+            font-weight: 900;
+            letter-spacing: 2px;
             color: var(--neon-cyan);
-            text-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
         }
 
-        /* PANEL DE ENLACE */
-        .conn-box {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 15px;
+        header p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
         }
 
+        /* COMPONENTES BASE DE LA INTERFAZ */
+        .cyber-panel {
+            background: linear-gradient(135deg, var(--bg-card) 0%, #04070d 100%);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            box-shadow: 0 4px 20px var(--border-glow);
+            border-radius: 12px;
+            padding: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cyber-panel::before {
+            content: '';
+            position: absolute;
+            top: 0; right: 0;
+            width: 10px; height: 10px;
+            background: var(--neon-cyan);
+            clip-path: polygon(100% 0, 0 0, 100% 100%);
+        }
+
+        .panel-title {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: var(--neon-cyan);
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .panel-title::before {
+            content: '';
+            display: inline-block;
+            width: 6px; height: 6px;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 6px var(--neon-cyan);
+        }
+
+        /* FILAS E INPUTS RESPONSIVOS */
         .row-inline {
             display: flex;
-            gap: 8px;
+            flex-direction: row;
+            gap: 12px;
+            width: 100%;
         }
 
-        input, select, textarea {
-            background-color: #000;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 6px;
-            padding: 10px;
-            color: var(--neon-green);
-            font-size: 0.9rem;
+        input[type="text"], select, textarea {
+            background-color: var(--bg-input);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 12px;
+            color: #fff;
+            font-size: 0.95rem;
             outline: none;
+            transition: all 0.3s ease;
+            width: 100%;
         }
 
-        input[type="text"] { width: 100%; }
+        input[type="text"]:focus, select:focus, textarea:focus {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
+        }
 
-        input[type="text"]::placeholder {
+        input[type="text"]::placeholder, textarea::placeholder {
             color: #334155;
             font-style: italic;
         }
 
+        /* BOTONES MECÁNICOS CIBERNÉTICOS */
         .btn {
-            background: #000;
+            background: transparent;
             border: 1px solid var(--neon-cyan);
             color: var(--neon-cyan);
-            padding: 10px 14px;
-            border-radius: 6px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace;
             font-weight: bold;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             cursor: pointer;
             text-transform: uppercase;
+            transition: all 0.3s ease;
+            letter-spacing: 1px;
+            white-space: nowrap;
+            box-shadow: 0 0 8px rgba(0, 240, 255, 0.1);
+        }
+
+        .btn:hover {
+            background: rgba(0, 240, 255, 0.08);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
         }
 
         .btn.active-btn {
             border-color: var(--neon-green);
             color: var(--neon-green);
-            background: rgba(57, 255, 20, 0.05);
+            background: rgba(57, 255, 20, 0.03);
+            box-shadow: 0 0 10px rgba(57, 255, 20, 0.1);
         }
 
-        /* VISUALIZADOR DE MENSAJES */
+        .btn.active-btn:hover {
+            background: rgba(57, 255, 20, 0.08);
+            box-shadow: 0 0 15px rgba(57, 255, 20, 0.3);
+        }
+
+        /* MONITOR DE COMUNICACIÓN ADAPTATIVO */
         .chat-box {
-            background: #000;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            height: 240px;
+            background: var(--bg-input);
+            border: 1px solid rgba(0, 240, 255, 0.1);
+            border-radius: 10px;
+            height: 320px; /* Más cómodo tanto para PC como móvil */
             overflow-y: auto;
-            padding: 10px;
-            margin-bottom: 15px;
+            padding: 16px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 12px;
         }
 
+        /* ADAPTACIÓN DE TEXTO EN MENSAJES (SANS-SERIF DE ALTA LEGIBILIDAD) */
         .msg {
-            max-width: 85%;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            line-height: 1.4;
-            word-break: break-all;
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.95rem; /* Tamaño optimizado para leer párrafos cómodamente */
+            line-height: 1.5;
+            word-break: break-word;
+            white-space: pre-wrap;
             transition: opacity 0.4s ease;
+            position: relative;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
         }
 
         .msg.incoming {
-            background-color: #0c1524;
-            border-left: 3px solid var(--neon-cyan);
+            background: linear-gradient(135deg, #09121f 0%, #050b14 100%);
+            border-left: 4px solid var(--neon-cyan);
             align-self: flex-start;
+            border-top-left-radius: 2px;
         }
 
         .msg.outgoing {
-            background-color: #160f29;
-            border-right: 3px solid var(--neon-purple);
+            background: linear-gradient(135deg, #180d2b 0%, #0f071c 100%);
+            border-right: 4px solid var(--neon-purple);
             align-self: flex-end;
-            text-align: right;
+            border-top-right-radius: 2px;
         }
 
+        /* METADATOS EN MONOESPACIADO CIBERNÉTICO */
         .msg .meta {
-            font-size: 0.6rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.65rem;
             color: var(--text-muted);
-            margin-bottom: 4px;
+            margin-bottom: 6px;
             display: block;
+            letter-spacing: 0.5px;
         }
 
-        /* ELEMENTOS DINÁMICOS */
+        /* INTERRUPTORES DE COMANDO DINÁMICOS */
         .msg .decrypt-btn {
-            background: rgba(57, 255, 20, 0.1);
+            background: rgba(57, 255, 20, 0.05);
             border: 1px solid var(--neon-green);
             color: var(--neon-green);
-            font-size: 0.65rem;
-            padding: 4px 8px;
-            border-radius: 4px;
-            margin-top: 6px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.7rem;
+            padding: 6px 12px;
+            border-radius: 6px;
+            margin-top: 8px;
             cursor: pointer;
             display: inline-block;
             font-weight: bold;
             text-transform: uppercase;
+            transition: all 0.2s ease;
+        }
+
+        .msg .decrypt-btn:hover {
+            background: rgba(57, 255, 20, 0.15);
+            box-shadow: 0 0 10px rgba(57, 255, 20, 0.2);
         }
 
         .msg .countdown-indicator {
-            background: rgba(255, 51, 51, 0.1);
+            background: rgba(255, 51, 51, 0.05);
             border: 1px solid var(--neon-red);
             color: var(--neon-red);
-            font-size: 0.65rem;
-            padding: 4px 8px;
-            border-radius: 4px;
-            margin-top: 6px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.7rem;
+            padding: 6px 12px;
+            border-radius: 6px;
+            margin-top: 8px;
             display: inline-block;
             font-weight: bold;
         }
 
-        /* CONSOLA OPERATIVA */
         .crypto-box {
-            background-color: var(--bg-card);
-            border: 1px solid rgba(161, 0, 255, 0.2);
-            border-radius: 8px;
-            padding: 12px;
+            border-color: rgba(157, 78, 221, 0.2);
+            box-shadow: 0 4px 20px var(--border-glow-purple);
+        }
+        
+        .crypto-box::before {
+            background: var(--neon-purple);
         }
 
         .crypto-box label {
             display: block;
+            font-family: 'Courier New', Courier, monospace;
             font-size: 0.75rem;
             color: var(--neon-purple);
-            margin-bottom: 4px;
+            margin-bottom: 6px;
+            letter-spacing: 1px;
             text-transform: uppercase;
+            font-weight: bold;
         }
 
-        .grid-crypto-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin-top: 8px;
+        /* MEDIA QUERIES PARA ADAPTACIÓN AUTOMÁTICA EN DISPOSITIVOS GRANDES (PC/TABLET) */
+        @media (min-width: 768px) {
+            header h1 { font-size: 1.8rem; }
+            .chat-box { height: 420px; } /* Más alto en pantallas grandes */
+            
+            /* Distribución en dos columnas para el panel de envío en PC */
+            .send-grid {
+                display: grid;
+                grid-template-columns: 1fr 280px;
+                gap: 16px;
+                align-items: end;
+            }
+            .send-controls {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
         }
-
-        .btn.purple { border-color: var(--neon-purple); color: var(--neon-purple); }
     </style>
 </head>
 <body>
@@ -205,48 +310,40 @@
     <div class="wrapper">
         <header>
             <h1>[CRYPTO_POCKET_P2P]</h1>
-            <p>Sala Privada Manual e Inyección de Red Silenciosa</p>
+            <p>Terminal Autoadaptable — Enlace Cripto Automático</p>
         </header>
 
-        <!-- CANAL DE RED -->
-        <div class="conn-box">
-            <div style="font-size: 0.7rem; color: var(--neon-cyan); margin-bottom: 6px;">CREAR / ENLAZAR SALA PRIVADA:</div>
+        <div class="cyber-panel">
+            <div class="panel-title">Frecuencia de Red Silenciosa</div>
             <div class="row-inline">
-                <input type="text" id="roomInput" placeholder="Escribe un código o canal secreto..." autocomplete="off">
-                <button class="btn" id="connBtn" onclick="connectToBroker()">Conectar</button>
+                <input type="text" id="roomInput" placeholder="Ingrese clave o credencial de canal privado..." autocomplete="off">
+                <button class="btn" id="connBtn" onclick="connectToBroker()">Enlazar</button>
             </div>
-            <div id="statusIndicator" style="font-size: 0.65rem; color: var(--text-muted); margin-top: 5px; text-align: center;">
-                Estado: Esperando ingreso de canal...
+            <div id="statusIndicator" style="font-family:'Courier New', monospace; font-size: 0.7rem; color: var(--text-muted); margin-top: 8px; text-align: center;">
+                SISTEMA: Esperando inyección de canal...
             </div>
         </div>
 
-        <!-- MONITOR DE COMUNICACIÓN (COMPLETAMENTE LIMPIO) -->
         <div class="chat-box" id="chatDisplay"></div>
 
-        <!-- MÓDULO DE ENVÍO -->
-        <div class="crypto-box">
-            <div>
-                <label>Mensaje a Transmitir</label>
-                <textarea id="payloadText" rows="3" style="width:100%" placeholder="Escribe tu mensaje secreto aquí..."></textarea>
-            </div>
-
-            <div class="row-inline" style="align-items: center; justify-content: space-between;">
-                <div style="width: 55%">
-                    <label>Algoritmo de Envío</label>
-                    <select id="algoSelect" style="width: 100%; padding: 6px;">
-                        <option value="base64">Base64</option>
-                        <option value="hex">Hexadecimal</option>
-                        <option value="caesar">César (Rot 3)</option>
-                    </select>
+        <div class="cyber-panel crypto-box">
+            <div class="send-grid">
+                <div>
+                    <label>Bloque de Mensaje / Párrafo Seguro</label>
+                    <textarea id="payloadText" rows="3" placeholder="Escriba aquí los datos o párrafos a transmitir..."></textarea>
                 </div>
-                <div style="width: 40%; margin-top: 14px;">
-                    <button class="btn active-btn" style="width: 100%; padding: 8px 0;" onclick="sendMessage()">⚡ TRANSMITIR</button>
-                </div>
-            </div>
 
-            <div class="grid-crypto-actions">
-                <button class="btn purple" onclick="processCryptoLocal('encode')">🔒 Encriptar Local</button>
-                <button class="btn purple" onclick="processCryptoLocal('decode')">🔓 Desencriptar Local</button>
+                <div class="send-controls">
+                    <div>
+                        <label>Algoritmo de Inyección</label>
+                        <select id="algoSelect">
+                            <option value="base64">Base64 (UTF-8)</option>
+                            <option value="hex">Hexadecimal</option>
+                            <option value="caesar">César (Rot 3)</option>
+                        </select>
+                    </div>
+                    <button class="btn active-btn" style="width: 100%;" onclick="sendMessage()">⚡ TRANSMITIR</button>
+                </div>
             </div>
         </div>
     </div>
@@ -261,17 +358,17 @@
             const btn = document.getElementById('connBtn');
 
             if (!room) { 
-                alert("ERROR: Debes definir una clave o nombre de canal para establecer el enlace."); 
+                alert("ERROR INTERNO: Se requiere un canal para mapear la red."); 
                 return; 
             }
             
-            status.innerText = "Estableciendo enlace de red...";
+            status.innerText = "ESTABLECIENDO ENLACE CON EL BROKER P2P...";
             status.style.color = "var(--neon-cyan)";
 
             mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
             mqttClient.on('connect', () => {
-                status.innerText = `ENLACE ACTIVO // CANAL OCULTO INTEGRADO`;
+                status.innerText = `RED SINCRONIZADA // CANAL ACTIVO: [${room.toUpperCase()}]`;
                 status.style.color = "var(--neon-green)";
                 btn.innerText = "Enlazado";
                 btn.classList.add('active-btn');
@@ -291,21 +388,68 @@
             });
 
             mqttClient.on('error', () => {
-                status.innerText = "Error en el enlace.";
+                status.innerText = "FALLO TÉCNICO: Conexión rechazada o caída.";
                 status.style.color = "var(--neon-red)";
             });
         }
 
+        // --- NÚCLEO CRIPTOGRÁFICO DE ALTA COBERTURA ---
+        function runCipherEngine(text, algo, mode) {
+            try {
+                if (algo === 'base64') {
+                    if (mode === 'encode') {
+                        const bytes = new TextEncoder().encode(text);
+                        const binString = String.fromCodePoint(...bytes);
+                        return btoa(binString);
+                    } else {
+                        const binString = atob(text.trim());
+                        const bytes = Uint8Array.from(binString, m => m.codePointAt(0));
+                        return new TextDecoder().decode(bytes);
+                    }
+                }
+                
+                if (algo === 'hex') {
+                    if (mode === 'encode') {
+                        return Array.from(new TextEncoder().encode(text))
+                                    .map(b => b.toString(16).padStart(2, '0'))
+                                    .join(' ');
+                    } else {
+                        const cleanHex = text.replace(/\s+/g, '');
+                        if (cleanHex.length % 2 !== 0) return null;
+                        const bytes = new Uint8Array(cleanHex.length / 2);
+                        for (let i = 0; i < cleanHex.length; i += 2) {
+                            bytes[i / 2] = parseInt(cleanHex.substr(i, 2), 16);
+                        }
+                        return new TextDecoder().decode(bytes);
+                    }
+                }
+                
+                if (algo === 'caesar') {
+                    const shift = (mode === 'encode') ? 3 : 23;
+                    return text.replace(/[a-z]/gi, letter => {
+                        const start = letter <= 'Z' ? 65 : 97;
+                        return String.fromCharCode(((letter.charCodeAt(0) - start + shift) % 26) + start);
+                    });
+                }
+            } catch (e) {
+                return null;
+            }
+            return text;
+        }
+
         function sendMessage() {
             const room = document.getElementById('roomInput').value.trim();
-            const payload = document.getElementById('payloadText').value.trim();
+            let payload = document.getElementById('payloadText').value.trim();
             const algo = document.getElementById('algoSelect').value;
 
             if (!mqttClient || !mqttClient.connected) {
-                alert("Primero debes ingresar y enlazar un canal privado.");
+                alert("ERROR: Terminal fuera de línea. Enlace un canal primero.");
                 return;
             }
             if (!payload) return;
+
+            // Encriptación automática obligatoria previa a la transmisión
+            payload = runCipherEngine(payload, algo, 'encode');
 
             const uniqueMsgId = "msg_" + Math.random().toString(36).substr(2, 9) + Date.now().toString().slice(-4);
 
@@ -320,6 +464,7 @@
 
             mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify(packet));
             renderOutgoingMessage(packet);
+            
             document.getElementById('payloadText').value = ""; 
         }
 
@@ -347,9 +492,9 @@
             msgDiv.setAttribute('data-algo', data.algo);
 
             msgDiv.innerHTML = `
-                <span class="meta">RECIBIDO (${data.algo.toUpperCase()}) - ${data.time}</span>
+                <span class="meta">NODO_RECEP (${data.algo.toUpperCase()}) - ${data.time}</span>
                 <span class="payload-body">${data.text}</span><br>
-                <button class="decrypt-btn" onclick="decryptInPlace(this)">🔓 Descifrar Aquí</button>
+                <button class="decrypt-btn" onclick="decryptInPlace(this)">🔓 Descifrar Bloque</button>
             `;
             display.appendChild(msgDiv);
             display.scrollTop = display.scrollHeight;
@@ -362,26 +507,18 @@
             const algo = msgDiv.getAttribute('data-algo');
             const textSpan = msgDiv.querySelector('.payload-body');
             
-            let decryptedText = "";
+            let decryptedText = runCipherEngine(encryptedText, algo, 'decode');
 
-            try {
-                if (algo === 'base64') decryptedText = decodeURIComponent(escape(atob(encryptedText.trim())));
-                if (algo === 'hex') {
-                    const cleanHex = encryptedText.replace(/\s+/g, '');
-                    let str = '';
-                    for (let i = 0; i < cleanHex.length; i += 2) str += String.fromCharCode(parseInt(cleanHex.substr(i, 2), 16));
-                    decryptedText = str;
-                }
-                if (algo === 'caesar') decryptedText = caesarCipher(encryptedText, 23);
-            } catch(e) {
-                alert("Error técnico al procesar la cadena cifrada.");
+            if (!decryptedText) {
+                alert("ERROR: Integridad de datos rota durante el descifrado.");
                 return;
             }
 
             textSpan.innerText = decryptedText;
             textSpan.style.color = "var(--neon-green)";
-            textSpan.style.fontWeight = "bold";
+            textSpan.style.fontWeight = "600";
 
+            // Tiempos dinámicos calculados según extensión física real del texto
             let timeLeft = 20; 
             const textLength = decryptedText.length;
 
@@ -390,17 +527,17 @@
             } else if (textLength <= 90) {
                 timeLeft = 10;
             } else {
-                timeLeft = 20;
+                timeLeft = 25; // Tiempo extendido para párrafos completos en PC/Tablet
             }
 
             buttonElement.className = "countdown-indicator";
             buttonElement.disabled = true;
-            buttonElement.innerText = `⏱️ Destrucción: ${timeLeft}s`;
+            buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
 
             const countdownInterval = setInterval(() => {
                 timeLeft--;
                 if(timeLeft > 0) {
-                    buttonElement.innerText = `⏱️ Destrucción: ${timeLeft}s`;
+                    buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
                 } else {
                     clearInterval(countdownInterval);
                     
@@ -424,38 +561,6 @@
                 setTimeout(() => {
                     element.remove();
                 }, 400);
-            }
-        }
-
-        function caesarCipher(str, shift) {
-            return str.replace(/[a-z]/gi, letter => {
-                const start = letter <= 'Z' ? 65 : 97;
-                return String.fromCharCode(((letter.charCodeAt(0) - start + shift) % 26) + start);
-            });
-        }
-
-        function processCryptoLocal(action) {
-            const box = document.getElementById('payloadText');
-            const algo = document.getElementById('algoSelect').value;
-            if(!box.value) return;
-
-            try {
-                if (action === 'encode') {
-                    if (algo === 'base64') box.value = btoa(unescape(encodeURIComponent(box.value)));
-                    if (algo === 'hex') box.value = Array.from(box.value).map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join(' ');
-                    if (algo === 'caesar') box.value = caesarCipher(box.value, 3);
-                } else {
-                    if (algo === 'base64') box.value = decodeURIComponent(escape(atob(box.value.trim())));
-                    if (algo === 'hex') {
-                        const cleanHex = box.value.replace(/\s+/g, '');
-                        let str = '';
-                        for (let i = 0; i < cleanHex.length; i += 2) str += String.fromCharCode(parseInt(cleanHex.substr(i, 2), 16));
-                        box.value = str;
-                    }
-                    if (algo === 'caesar') box.value = caesarCipher(box.value, 23);
-                }
-            } catch(e) {
-                alert("Error en el formato de entrada.");
             }
         }
     </script>
