@@ -70,7 +70,6 @@
 
         .chat-img { max-width: 100%; max-height: 200px; border: 1px solid var(--neon-cyan); border-radius: 8px; margin-top: 8px; display: block; box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); cursor: pointer; transition: transform 0.2s; }
         .chat-img:hover { transform: scale(1.02); }
-        .placeholder-text { color: var(--neon-purple); font-style: italic; font-size: 0.85rem; }
 
         /* INTERFAZ DEL PAYWALL */
         .paywall-overlay {
@@ -383,11 +382,12 @@
                 const base64Image = e.target.result;
                 const uniqueMsgId = "msg_" + Math.random().toString(36).substr(2, 9) + Date.now().toString().slice(-4);
                 
+                // Transmisión directa sin algoritmos de cifrado secundarios añadidos
                 const packet = { 
                     type: 'chat', 
                     id: uniqueMsgId, 
                     sender: myClientId, 
-                    algo: 'base64', 
+                    algo: 'plain', 
                     text: base64Image, 
                     isImage: true, 
                     time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
@@ -405,73 +405,89 @@
             const msgDiv = document.createElement('div');
             msgDiv.className = "msg outgoing"; msgDiv.id = `target-${data.id}`;
             
-            let content = data.isImage 
-                ? `<img src="${data.text}" class="chat-img" onclick="window.open(this.src)">`
-                : `<span>${data.text}</span>`;
+            if (data.isImage) {
+                // Renderizado inmediato para ti con contador de 5 segundos activo
+                msgDiv.innerHTML = `
+                    <span class="meta">TÚ (STREAM) - ${data.time}</span>
+                    <img src="${data.text}" class="chat-img" onclick="window.open(this.src)">
+                    <div id="count-${data.id}" style="color: var(--neon-red); font-family: 'Courier New', monospace; font-size: 0.7rem; margin-top: 5px; font-weight: bold;">⏱️ Autodestrucción: 5s</div>
+                `;
+                display.appendChild(msgDiv); display.scrollTop = display.scrollHeight;
 
-            msgDiv.innerHTML = `<span class="meta">TÚ (${data.algo.toUpperCase()}) - ${data.time}</span>${content}`;
-            display.appendChild(msgDiv); display.scrollTop = display.scrollHeight;
+                let timeLeft = 5;
+                const countdown = setInterval(() => {
+                    timeLeft--;
+                    const el = document.getElementById(`count-${data.id}`);
+                    if (el) el.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
+                    if (timeLeft <= 0) {
+                        clearInterval(countdown);
+                        executeTargetDestruction(data.id);
+                    }
+                }, 1000);
+            } else {
+                msgDiv.innerHTML = `<span class="meta">TÚ (${data.algo.toUpperCase()}) - ${data.time}</span><span>${data.text}</span>`;
+                display.appendChild(msgDiv); display.scrollTop = display.scrollHeight;
+            }
         }
 
         function renderIncomingMessage(data) {
             const display = document.getElementById('chatDisplay');
             const msgDiv = document.createElement('div');
             msgDiv.className = "msg incoming"; msgDiv.id = `target-${data.id}`;
-            msgDiv.setAttribute('data-id', data.id); 
-            msgDiv.setAttribute('data-cipher', data.text); 
-            msgDiv.setAttribute('data-algo', data.algo);
-            if (data.isImage) msgDiv.setAttribute('data-image', 'true');
-
-            let content = '';
+            
             if (data.isImage) {
-                content = `<span class="payload-body" style="display:none;">${data.text}</span><span class="placeholder-text">[IMAGEN CIFRADA INTRANET]</span><br><button class="btn" style="padding:4px 10px; font-size:0.7rem; margin-top:6px; border-color:var(--neon-green); color:var(--neon-green);" onclick="decryptInPlace(this)">🔓 Descifrar Imagen</button>`;
+                // Renderizado sin intermediación de descifrado + Autodestrucción inmediata
+                msgDiv.innerHTML = `
+                    <span class="meta">NODO_RECEP (STREAM) - ${data.time}</span>
+                    <img src="${data.text}" class="chat-img" onclick="window.open(this.src)">
+                    <div id="count-${data.id}" style="color: var(--neon-red); font-family: 'Courier New', monospace; font-size: 0.7rem; margin-top: 5px; font-weight: bold;">⏱️ Autodestrucción: 5s</div>
+                `;
+                display.appendChild(msgDiv); display.scrollTop = display.scrollHeight;
+
+                let timeLeft = 5;
+                const countdown = setInterval(() => {
+                    timeLeft--;
+                    const el = document.getElementById(`count-${data.id}`);
+                    if (el) el.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
+                    if (timeLeft <= 0) {
+                        clearInterval(countdown);
+                        const room = document.getElementById('roomInput').value.trim();
+                        if (mqttClient && mqttClient.connected) {
+                            mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify({ type: 'destroy', id: data.id }));
+                        }
+                        executeTargetDestruction(data.id);
+                    }
+                }, 1000);
+
+                triggerPushNotification("Mensaje P2P Entrante", "Has recibido una imagen temporal (5s).");
             } else {
-                content = `<span class="payload-body">${data.text}</span><br><button class="btn" style="padding:4px 10px; font-size:0.7rem; margin-top:6px; border-color:var(--neon-green); color:var(--neon-green);" onclick="decryptInPlace(this)">🔓 Descifrar</button>`;
+                // El flujo de los mensajes de texto normales se conserva igual
+                msgDiv.setAttribute('data-id', data.id); 
+                msgDiv.setAttribute('data-cipher', data.text); 
+                msgDiv.setAttribute('data-algo', data.algo);
+                msgDiv.innerHTML = `<span class="meta">NODO_RECEP (${data.algo.toUpperCase()}) - ${data.time}</span><br><span class="payload-body">${data.text}</span><br><button class="btn" style="padding:4px 10px; font-size:0.7rem; margin-top:6px; border-color:var(--neon-green); color:var(--neon-green);" onclick="decryptInPlace(this)">🔓 Descifrar</button>`;
+                display.appendChild(msgDiv); display.scrollTop = display.scrollHeight;
+
+                triggerPushNotification("Mensaje P2P Entrante", "Has recibido una transmisión cifrada de texto.");
             }
-
-            msgDiv.innerHTML = `<span class="meta">NODO_RECEP (${data.algo.toUpperCase()}) - ${data.time}</span>${content}`;
-            display.appendChild(msgDiv); display.scrollTop = display.scrollHeight;
-
-            triggerPushNotification("Mensaje P2P Entrante", data.isImage ? "Has recibido un bloque de imagen cifrado." : "Has recibido una transmisión cifrada de texto.");
         }
 
-        // --- FUNCIÓN DE DESCIFRADO Y DESCARGA INTEGRADA ---
         function decryptInPlace(buttonElement) {
             const msgDiv = buttonElement.closest('.msg');
             const msgId = msgDiv.getAttribute('data-id');
             const encryptedText = msgDiv.getAttribute('data-cipher');
             const algo = msgDiv.getAttribute('data-algo');
-            const isImage = msgDiv.getAttribute('data-image') === 'true';
             const textSpan = msgDiv.querySelector('.payload-body');
             
             let decryptedText = runCipherEngine(encryptedText, algo, 'decode');
 
             if (!decryptedText) return alert("ERROR: Datos corruptos o algoritmo incorrecto.");
             
+            textSpan.innerText = decryptedText; 
+            textSpan.style.color = "var(--neon-green)"; 
+            textSpan.style.fontWeight = "600";
+
             let timeLeft = decryptedText.length < 25 ? 5 : (decryptedText.length <= 90 ? 10 : 25);
-
-            if (isImage) {
-                const placeholder = msgDiv.querySelector('.placeholder-text');
-                if (placeholder) placeholder.remove();
-                
-                // Inyección limpia de la imagen descifrada junto con su respectivo botón de descarga nativa
-                textSpan.innerHTML = `
-                    <img src="${decryptedText}" class="chat-img" onclick="window.open(this.src)">
-                    <div style="margin-top: 8px;">
-                        <a href="${decryptedText}" download="P2P_IMG_${msgId}.png" class="btn" style="padding:4px 12px; font-size:0.7rem; border-color:var(--neon-cyan); color:var(--neon-cyan); text-decoration:none; display:inline-block; font-family:'Courier New', monospace;">📥 Descargar Imagen</a>
-                    </div>
-                `;
-                textSpan.style.display = 'block';
-                
-                // Forzamos un temporizador de 30 segundos fijo para dar tiempo de descargar archivos pesados
-                timeLeft = 30;
-            } else {
-                textSpan.innerText = decryptedText; 
-                textSpan.style.color = "var(--neon-green)"; 
-                textSpan.style.fontWeight = "600";
-            }
-
-            // Cambiar comportamiento del botón original para transformarlo en contador regresivo
             buttonElement.className = "countdown-indicator"; 
             buttonElement.disabled = true; 
             buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
