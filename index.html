@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Pocket P2P Chat</title>
+    <title>Crypto Pocket P2P Chat - AutoDestruct</title>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         :root {
@@ -12,6 +12,7 @@
             --neon-cyan: #00f0ff;
             --neon-purple: #a100ff;
             --neon-green: #39ff14;
+            --neon-red: #ff3333;
             --text-main: #e2e8f0;
             --text-muted: #475569;
             --border: rgba(0, 240, 255, 0.2);
@@ -52,7 +53,7 @@
             text-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
         }
 
-        /* PANEL DE CONEXIÓN */
+        /* PANEL DE ENLACE */
         .conn-box {
             background-color: var(--bg-card);
             border: 1px solid var(--border);
@@ -96,12 +97,12 @@
             background: rgba(57, 255, 20, 0.05);
         }
 
-        /* ÁREA DE MENSAJES (CHAT) */
+        /* VISUALIZADOR DE MENSAJES */
         .chat-box {
             background: #000;
             border: 1px solid var(--border);
             border-radius: 8px;
-            height: 200px;
+            height: 240px;
             overflow-y: auto;
             padding: 10px;
             margin-bottom: 15px;
@@ -112,10 +113,11 @@
 
         .msg {
             max-width: 85%;
-            padding: 8px;
+            padding: 10px;
             border-radius: 6px;
             font-size: 0.75rem;
-            line-height: 1.3;
+            line-height: 1.4;
+            word-break: break-all; /* Evita que códigos largos rompan la interfaz móvil */
         }
 
         .msg.incoming {
@@ -138,19 +140,34 @@
             display: block;
         }
 
-        .msg .load-btn {
-            background: rgba(0, 240, 255, 0.1);
-            border: 1px solid var(--neon-cyan);
-            color: var(--neon-cyan);
-            font-size: 0.6rem;
-            padding: 2px 5px;
+        /* BOTONES INTERNOS DEL CHAT */
+        .msg .decrypt-btn {
+            background: rgba(57, 255, 20, 0.1);
+            border: 1px solid var(--neon-green);
+            color: var(--neon-green);
+            font-size: 0.65rem;
+            padding: 4px 8px;
             border-radius: 4px;
-            margin-top: 5px;
+            margin-top: 6px;
             cursor: pointer;
             display: inline-block;
+            font-weight: bold;
+            text-transform: uppercase;
         }
 
-        /* SECCIÓN CRIPTO */
+        .msg .countdown-indicator {
+            background: rgba(255, 51, 51, 0.1);
+            border: 1px solid var(--neon-red);
+            color: var(--neon-red);
+            font-size: 0.65rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-top: 6px;
+            display: inline-block;
+            font-weight: bold;
+        }
+
+        /* CONSOLA OPERATIVA */
         .crypto-box {
             background-color: var(--bg-card);
             border: 1px solid rgba(161, 0, 255, 0.2);
@@ -181,13 +198,13 @@
     <div class="wrapper">
         <header>
             <h1>[CRYPTO_POCKET_P2P]</h1>
-            <p>Terminal de comunicación cifrada en tiempo real</p>
+            <p>Comunicación Efímera Segura (20s de lectura)</p>
         </header>
 
         <div class="conn-box">
-            <div style="font-size: 0.7rem; color: var(--neon-cyan); margin-bottom: 6px;">SALA / CANAL COMPARTIDO:</div>
+            <div style="font-size: 0.7rem; color: var(--neon-cyan); margin-bottom: 6px;">SALA EN COMÚN:</div>
             <div class="row-inline">
-                <input type="text" id="roomInput" value="vincez_secure_99" placeholder="Clave de sala secreta">
+                <input type="text" id="roomInput" value="vincez_secure_99" placeholder="Clave de sala">
                 <button class="btn" id="connBtn" onclick="connectToBroker()">Conectar</button>
             </div>
             <div id="statusIndicator" style="font-size: 0.65rem; color: var(--text-muted); margin-top: 5px; text-align: center;">
@@ -196,56 +213,52 @@
         </div>
 
         <div class="chat-box" id="chatDisplay">
-            <div class="msg incoming" style="border-left-color: var(--text-muted);">
+            <div class="msg incoming" id="sysMessage" style="border-left-color: var(--text-muted); max-width: 100%;">
                 <span class="meta">SISTEMA</span>
-                Conéctate a una sala con tu compañero para sincronizar transmisiones.
+                Los mensajes entrantes se descifran directo aquí y se auto-destruyen en 20 segundos de forma permanente.
             </div>
         </div>
 
         <div class="crypto-box">
-            <div class="form-group" style="margin-bottom: 8px;">
-                <label>Mensaje (Texto Claro o Código)</label>
-                <textarea id="payloadText" rows="3" style="width:100%" placeholder="Escribe aquí tu texto..."></textarea>
+            <div>
+                <label>Mensaje a Transmitir</label>
+                <textarea id="payloadText" rows="3" style="width:100%" placeholder="Escribe tu mensaje secreto aquí..."></textarea>
             </div>
 
             <div class="row-inline" style="align-items: center; justify-content: space-between;">
-                <div style="width: 60%">
-                    <label>Algoritmo</label>
+                <div style="width: 55%">
+                    <label>Algoritmo de Envío</label>
                     <select id="algoSelect" style="width: 100%; padding: 6px;">
                         <option value="base64">Base64</option>
                         <option value="hex">Hexadecimal</option>
                         <option value="caesar">César (Rot 3)</option>
                     </select>
                 </div>
-                <div style="width: 35%; margin-top: 14px;">
-                    <button class="btn active-btn" style="width: 100%; padding: 8px 0;" onclick="sendMessage()">⚡ ENVIAR</button>
+                <div style="width: 40%; margin-top: 14px;">
+                    <button class="btn active-btn" style="width: 100%; padding: 8px 0;" onclick="sendMessage()">⚡ TRANSMITIR</button>
                 </div>
             </div>
 
             <div class="grid-crypto-actions">
-                <button class="btn purple" onclick="processCrypto('encode')">🔒 Codificar Local</button>
-                <button class="btn purple" onclick="processCrypto('decode')">🔓 Decodificar Local</button>
+                <button class="btn purple" onclick="processCryptoLocal('encode')">🔒 Encriptar Local</button>
+                <button class="btn purple" onclick="processCryptoLocal('decode')">🔓 Desencriptar Local</button>
             </div>
         </div>
     </div>
 
     <script>
         let mqttClient = null;
-        // Generamos un ID único por dispositivo para no auto-leer nuestros propios mensajes enviados al canal
         const myClientId = "client_" + Math.random().toString(16).substr(2, 8);
 
-        // --- CONEXIÓN AL BROKER PÚBLICO ---
         function connectToBroker() {
             const room = document.getElementById('roomInput').value.trim();
             const status = document.getElementById('statusIndicator');
             const btn = document.getElementById('connBtn');
 
             if (!room) { alert("Ingresa un nombre de sala"); return; }
-
             status.innerText = "Estableciendo enlace de red...";
             status.style.color = "var(--neon-cyan)";
 
-            // Usamos el servidor websocket seguro y público de EMQX
             mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
             mqttClient.on('connect', () => {
@@ -253,37 +266,35 @@
                 status.style.color = "var(--neon-green)";
                 btn.innerText = "Enlazado";
                 btn.classList.add('active-btn');
-                
-                // Nos suscribimos a la sala única elegida
                 mqttClient.subscribe(`pocketsec/chat/${room}`);
+                
+                // Limpiar mensaje del sistema inicial
+                const sysMsg = document.getElementById('sysMessage');
+                if(sysMsg) sysMsg.remove();
             });
 
             mqttClient.on('message', (topic, message) => {
                 try {
                     const data = JSON.parse(message.toString());
-                    // Filtrar para no duplicar los mensajes que yo mismo envié
                     if (data.sender !== myClientId) {
                         renderIncomingMessage(data);
                     }
-                } catch (e) {
-                    // Ignorar paquetes corruptos o ajenos
-                }
+                } catch (e) {}
             });
 
             mqttClient.on('error', () => {
-                status.innerText = "Error en el enlace de red.";
-                status.style.color = "red";
+                status.innerText = "Error en el enlace.";
+                status.style.color = "var(--neon-red)";
             });
         }
 
-        // --- TRANSMISIÓN DE DATOS ---
         function sendMessage() {
             const room = document.getElementById('roomInput').value.trim();
             const payload = document.getElementById('payloadText').value.trim();
             const algo = document.getElementById('algoSelect').value;
 
             if (!mqttClient || !mqttClient.connected) {
-                alert("Primero debes presionar el botón 'Conectar' para ingresar a la red.");
+                alert("Primero debes enlazar la Sala.");
                 return;
             }
             if (!payload) return;
@@ -295,26 +306,9 @@
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
             };
 
-            // Publicamos el paquete en la sala común
             mqttClient.publish(`pocketsec/chat/${room}`, JSON.stringify(packet));
-            
-            // Renderizamos en nuestra pantalla como enviado
             renderOutgoingMessage(packet);
-            document.getElementById('payloadText').value = ""; // Limpiar panel
-        }
-
-        // --- IMPRESIÓN EN TERMINAL (INTERFAZ DE USUARIO) ---
-        function renderIncomingMessage(data) {
-            const display = document.getElementById('chatDisplay');
-            const msgDiv = document.createElement('div');
-            msgDiv.className = "msg incoming";
-            msgDiv.innerHTML = `
-                <span class="meta">RECIBIDO (${data.algo.toUpperCase()}) - ${data.time}</span>
-                <span class="payload-body">${data.text}</span><br>
-                <button class="load-btn" onclick="loadToDecoder('${data.text}', '${data.algo}')">📥 Cargar en Lector</button>
-            `;
-            display.appendChild(msgDiv);
-            display.scrollTop = display.scrollHeight;
+            document.getElementById('payloadText').value = ""; 
         }
 
         function renderOutgoingMessage(data) {
@@ -329,16 +323,89 @@
             display.scrollTop = display.scrollHeight;
         }
 
-        function loadToDecoder(text, algo) {
-            document.getElementById('payloadText').value = text;
-            document.getElementById('algoSelect').value = algo;
+        // --- RENDERIZADO CON FUNCIÓN DE DESCIFRADO INTEGRADO EN LUGAR ---
+        function renderIncomingMessage(data) {
+            const display = document.getElementById('chatDisplay');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = "msg incoming";
+            
+            // Pasamos los parámetros de manera limpia usando atributos de datos HTML5 para evitar colisiones de comillas
+            msgDiv.setAttribute('data-cipher', data.text);
+            msgDiv.setAttribute('data-algo', data.algo);
+
+            msgDiv.innerHTML = `
+                <span class="meta">RECIBIDO (${data.algo.toUpperCase()}) - ${data.time}</span>
+                <span class="payload-body">${data.text}</span><br>
+                <button class="decrypt-btn" onclick="decryptInPlace(this)">🔓 Descifrar Aquí</button>
+            `;
+            display.appendChild(msgDiv);
+            display.scrollTop = display.scrollHeight;
         }
 
-        // --- MÓDULO CRIPTO (PROCESAMIENTO LOCAL) ---
-        function processCrypto(action) {
+        // --- LÓGICA CORE: DESCIFRADO LOCAL Y TEMPORIZADOR DE BORRADO ---
+        function decryptInPlace(buttonElement) {
+            const msgDiv = buttonElement.closest('.msg');
+            const encryptedText = msgDiv.getAttribute('data-cipher');
+            const algo = msgDiv.getAttribute('data-algo');
+            const textSpan = msgDiv.querySelector('.payload-body');
+            
+            let decryptedText = "";
+
+            // Desencriptación en caliente
+            try {
+                if (algo === 'base64') decryptedText = decodeURIComponent(escape(atob(encryptedText.trim())));
+                if (algo === 'hex') {
+                    const cleanHex = encryptedText.replace(/\s+/g, '');
+                    let str = '';
+                    for (let i = 0; i < cleanHex.length; i += 2) str += String.fromCharCode(parseInt(cleanHex.substr(i, 2), 16));
+                    decryptedText = str;
+                }
+                if (algo === 'caesar') decryptedText = caesarCipher(encryptedText, 23); // Inverso de rotación 3
+            } catch(e) {
+                alert("Error técnico al procesar la cadena cifrada.");
+                return;
+            }
+
+            // Cambiar el texto cifrado por el real en el chat
+            textSpan.innerText = decryptedText;
+            textSpan.style.color = "var(--neon-green)";
+            textSpan.style.fontWeight = "bold";
+
+            // Iniciar cuenta regresiva en vez del botón
+            let timeLeft = 20;
+            buttonElement.className = "countdown-indicator";
+            buttonElement.disabled = true;
+            buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
+
+            const countdownInterval = setInterval(() => {
+                timeLeft--;
+                if(timeLeft > 0) {
+                    buttonElement.innerText = `⏱️ Autodestrucción: ${timeLeft}s`;
+                } else {
+                    clearInterval(countdownInterval);
+                    
+                    // Efecto visual rápido de desvanecimiento antes de borrar del DOM
+                    msgDiv.style.opacity = '0';
+                    msgDiv.style.transition = 'opacity 0.4s ease';
+                    
+                    setTimeout(() => {
+                        msgDiv.remove(); // Borrado total del documento
+                    }, 400);
+                }
+            }, 1000);
+        }
+
+        // --- AYUDANTES DE ALGORITMOS ---
+        function caesarCipher(str, shift) {
+            return str.replace(/[a-z]/gi, letter => {
+                const start = letter <= 'Z' ? 65 : 97;
+                return String.fromCharCode(((letter.charCodeAt(0) - start + shift) % 26) + start);
+            });
+        }
+
+        function processCryptoLocal(action) {
             const box = document.getElementById('payloadText');
             const algo = document.getElementById('algoSelect').value;
-            
             if(!box.value) return;
 
             try {
@@ -354,18 +421,11 @@
                         for (let i = 0; i < cleanHex.length; i += 2) str += String.fromCharCode(parseInt(cleanHex.substr(i, 2), 16));
                         box.value = str;
                     }
-                    if (algo === 'caesar') box.value = caesarCipher(box.value, 23); // Inverso de 3 en alfabeto de 26
+                    if (algo === 'caesar') box.value = caesarCipher(box.value, 23);
                 }
             } catch(e) {
-                alert("Error de parseo: El formato del mensaje no coincide con el algoritmo seleccionado.");
+                alert("Error en el formato de entrada.");
             }
-        }
-
-        function caesarCipher(str, shift) {
-            return str.replace(/[a-z]/gi, letter => {
-                const start = letter <= 'Z' ? 65 : 97;
-                return String.fromCharCode(((letter.charCodeAt(0) - start + shift) % 26) + start);
-            });
         }
     </script>
 </body>
